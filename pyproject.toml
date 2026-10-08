@@ -14,6 +14,8 @@ version = "0.4.0"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Terminal-native geopolitical situational awareness and intelligence workspace"
+# Without this the PyPI project page renders with no description at all.
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "requests>=2.31",
