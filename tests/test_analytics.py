@@ -246,7 +246,7 @@ def test_probability_is_always_bounded(monkeypatch, tmp_path):
 def test_forecast_reports_its_engine_and_horizon(monkeypatch, tmp_path):
     _seed(monkeypatch, tmp_path)
     result = forecast.forecast(end=END, horizon_days=21)
-    assert result.engine == "Geoscope Forecast Engine v0.1"
+    assert result.engine == "Vakula Forecast Engine v0.1"
     assert result.horizon_days == 21
     assert str(21) in result.statement
     assert result.basis

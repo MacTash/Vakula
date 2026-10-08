@@ -745,3 +745,59 @@ def test_the_system_works_with_no_model_configured(monkeypatch, tmp_path):
     assert result.model_used is False
     assert "SITUATION" in result.render()
     assert forecast.forecast(end=END).probability is not None
+
+
+def test_no_stale_product_names_in_shipped_text():
+    """Vakula shipped as Geoscope, then Vidur, then Vakula.
+
+    Both old names are honoured at runtime for data, settings and CLI continuity,
+    but nothing user-facing may still *brand* itself with them. A rename that
+    sweeps imports and leaves "Geoscope Forecast Engine" in the assessment text,
+    or a README still telling people to install from the old repository URL, is a
+    regression that no functional test can see.
+
+    Deliberate legacy spellings are allowlisted below with the reason they exist.
+    Anything else is a mistake.
+    """
+    # Files allowed to mention a retired name at all, and why.
+    allow = {
+        "vakula/storage.py": "reads the old directory and database names",
+        "pyproject.toml": "explains the rename to a human reader",
+        "README.md": "upgrade section for both previous names",
+        "tests/test_release.py": "this guard",
+        "tests/test_storage.py": "pins the fallback order across all three names",
+    }
+    # Files whose job is to prove old names still resolve; never audited.
+    skip = {".git", ".venv", ".vakula-npm-venv", "node_modules", "build",
+            "dist", ".mypy_cache", ".pytest_cache", "__pycache__", ".eggs",
+            "data", ".opencode", "LICENSE"}
+
+    offenders = []
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file() or path.suffix in {".db", ".pyc", ".png", ".woff2"}:
+            continue
+        rel = path.relative_to(ROOT)
+        if rel.parts[0] in skip or any(p in skip for p in rel.parts):
+            continue
+        if ".egg-info" in str(rel) or rel.as_posix() in allow:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for old in ("Geoscope", "Vidur"):
+                if old in line:
+                    offenders.append(f"{rel}:{lineno}: {old} in {line.strip()[:60]!r}")
+                    break
+    assert not offenders, "stale product names in shipped files:\n" + "\n".join(offenders)
+
+
+def test_readme_does_not_point_at_the_old_repository():
+    """The v0.4.0 release notes shipped an install command for the old repo URL,
+    contradicting the naming section two paragraphs above it. Pin the fix."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "MacTash/Vidur" not in readme
+    assert "MacTash/Geoscope" not in readme
+    assert "MacTash/Vakula" in readme
+    assert "pip install vakula" in readme

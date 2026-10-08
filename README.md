@@ -36,12 +36,21 @@ vakula
 
 The npm installer creates an isolated Python environment and installs the project dependencies. It requires Python 3.12+. The npm package name is `vakula`.
 
-The import package, CLI, database file, GitHub repository, PyPI name and npm
-name are all plain `vakula`, so the install command matches the name everywhere:
+The import package, CLI, database file, GitHub repository
+(https://github.com/MacTash/Vakula), PyPI name and npm name are all plain
+`vakula`, and the name is unclaimed on both PyPI and npm, so it is reserved for
+this project rather than a slug or a scope.
+
+**Vakula is not published to PyPI or npm yet.** Until it is, install from the
+repository:
 
 ```bash
-pip install vakula
+pip install git+https://github.com/MacTash/Vakula
 ```
+
+Once a registry release lands, this becomes simply `pip install vakula` and
+`npm install -g vakula` — the reason the rename was worth doing is precisely
+that the plain name is free for it.
 
 ## Upgrading from earlier releases
 
@@ -123,7 +132,7 @@ observations -> events -> contradictions -> analytics -> forecast
 
 Every claim in a briefing is labelled `OBSERVED`, `INFERRED`, `PREDICTED` or
 `UNKNOWN`, and carries the `OBS-n` and `EVT-n` identifiers behind it. The
-forecast probability is computed by `Geoscope Forecast Engine v0.1` and is never
+forecast probability is computed by `Vakula Forecast Engine v0.1` and is never
 supplied or adjusted by a model. Contradictions between sources are recorded and
 left unresolved; a model is never asked which source is right.
 

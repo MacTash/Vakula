@@ -413,7 +413,7 @@ def test_fallback_still_carries_the_intelligence(monkeypatch, tmp_path):
                     "CONTRADICTIONS AND UNCERTAINTY", "TRENDS AND ANOMALIES",
                     "FORECAST", "ASSESSMENT"):
         assert heading in text
-    assert "Geoscope Forecast Engine v0.1" in text
+    assert "Vakula Forecast Engine v0.1" in text
 
 
 def test_fallback_does_not_claim_a_model_ran(monkeypatch, tmp_path):

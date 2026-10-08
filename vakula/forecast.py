@@ -24,7 +24,7 @@ from datetime import date
 
 from vakula import analytics, confidence
 
-ENGINE = "Geoscope Forecast Engine v0.1"
+ENGINE = "Vakula Forecast Engine v0.1"
 ENGINE_VERSION = "0.1"
 
 DEFAULT_HORIZON_DAYS = 14
