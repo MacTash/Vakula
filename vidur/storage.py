@@ -530,6 +530,28 @@ def list_entities() -> list[dict]:
             "SELECT * FROM entities ORDER BY name COLLATE NOCASE").fetchall()]
 
 
+def contradictions_for_event(event_id: int) -> list[dict]:
+    """Every recorded dispute for an event, unresolved ones included."""
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM contradictions WHERE event_id=? ORDER BY id", (int(event_id),)).fetchall()]
+
+
+def list_events(limit: int = 100) -> list[dict]:
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM events ORDER BY id DESC LIMIT ?",
+            (max(1, min(int(limit), 500)),)).fetchall()]
+
+
+def relationship_count() -> int:
+    init_db()
+    with connect() as db:
+        return db.execute("SELECT COUNT(*) FROM relationships").fetchone()[0]
+
+
 def observation_stats() -> dict:
     """Counts used by the status command and the TUI overview."""
     init_db()

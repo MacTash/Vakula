@@ -1,7 +1,7 @@
 import time
 
 from vidur import extract, gazetteer, storage
-from vidur.extract import _clean, find_handles, find_mentions, find_quantities
+from vidur.extract import clean_text, find_handles, find_mentions, find_quantities
 
 
 # --- the curated locations -------------------------------------------------
@@ -146,7 +146,7 @@ def test_unreadable_timestamps_are_not_guessed():
 def test_html_is_stripped_for_matching_but_never_mutates_the_source():
     body = '<div class="post"><p>Three vessels left <b>Port X</b></p><script>alert(1)</script></div>'
     result = extract.extract(body)
-    assert "script" not in _clean(body).lower()
+    assert "script" not in clean_text(body).lower()
     assert result.quantities and result.quantities[0].value == 3
     assert body.startswith("<div") and "<script>" in body
 

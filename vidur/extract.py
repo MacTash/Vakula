@@ -142,7 +142,7 @@ class Extraction:
         return tuple(dict.fromkeys([*(m.key for m in self.entities), *self.handles]))
 
 
-def _clean(text: str) -> str:
+def clean_text(text: str) -> str:
     """A local copy for matching. The stored text is never modified."""
     if not isinstance(text, str):
         return ""
@@ -161,7 +161,7 @@ def detect_language(text: str) -> str:
     German or Norwegian needs a lexicon, and a wrong confident answer is worse
     than admitting ignorance.
     """
-    plain = _clean(text)
+    plain = clean_text(text)
     if not plain.strip():
         return ""
     best, best_hits = "", 0
@@ -235,7 +235,7 @@ def _index() -> tuple[tuple[re.Pattern, str, str, str], ...]:
 
 def find_mentions(text: str) -> tuple[tuple[Mention, ...], tuple[Mention, ...]]:
     """Find curated locations and entities. Unknown names yield nothing."""
-    plain = _clean(text)
+    plain = clean_text(text)
     if not plain:
         return (), ()
     taken: list[tuple[int, int]] = []
@@ -268,7 +268,7 @@ def find_mentions(text: str) -> tuple[tuple[Mention, ...], tuple[Mention, ...]]:
 def find_handles(text: str) -> tuple[str, ...]:
     """Account handles, deduplicated. Recorded as OTHER, never as a person."""
     seen, ordered = set(), []
-    for match in _HANDLE.finditer(_clean(text)):
+    for match in _HANDLE.finditer(clean_text(text)):
         handle = f"@{match.group(1)}"
         if handle.lower() not in seen:
             seen.add(handle.lower())
@@ -300,7 +300,7 @@ def _negated_before(text: str, start: int, window: int = 70) -> bool:
 
 def find_quantities(text: str) -> tuple[Quantity, ...]:
     """Numbers attached to curated unit nouns, each with its polarity."""
-    plain = _clean(text)
+    plain = clean_text(text)
     if not plain:
         return ()
     units = sorted({noun for nouns in UNIT_NOUNS.values() for noun in nouns},
