@@ -133,18 +133,27 @@ def analytic_confidence(observation_count: int, *, location_coverage: int = 0,
 
 
 def prediction_confidence(sample_days: int, *, baseline_stdev: float | None = None,
-                          window_days: int = 14) -> Confidence:
+                          window_days: int = 14, baseline_rate: float | None = None) -> Confidence:
     """Whether the recorded series is long and steady enough to forecast.
 
     Two problems are captured here: too few days to see a pattern, and a
     baseline that swings so much any forecast is noise. A high value here does
     not make a prediction true; it only says the arithmetic had something
     stable to work from.
+
+    ``baseline_rate`` guards a specific trap. A baseline of exactly zero has no
+    variance, which would otherwise score as perfectly stable and hand out high
+    confidence for a forecast about an empty record. No activity is not
+    stability, so it counts against confidence instead.
     """
     days = max(0, int(sample_days))
     window = max(1, int(window_days))
     if days < window:
         return Confidence(0.05, f"only {days} day(s) of history against a {window}-day window")
+    if baseline_rate is not None and float(baseline_rate) <= 0:
+        return Confidence(0.10,
+                          f"{days} day(s) of history, but the baseline recorded no activity "
+                          "at all, which is an absence of signal rather than stability")
     depth = min(1.0, days / (window * 4))
     if baseline_stdev is None:
         stability = 0.5

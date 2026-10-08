@@ -69,7 +69,8 @@ def clamp_confidence(value: Any) -> float:
         return 0.0
     if number != number:  # NaN
         return 0.0
-    return max(0.0, min(1.0, number))
+    # Rounded so a displayed confidence never reads 0.44999999999999996.
+    return round(max(0.0, min(1.0, number)), 4)
 
 
 @dataclass(frozen=True)
