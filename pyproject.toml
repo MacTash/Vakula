@@ -9,6 +9,10 @@ build-backend = "setuptools.build_meta"
 # keeps its data. See vakula/storage.py -> LEGACY_APP_NAMES.
 name = "vakula"
 version = "0.4.0"
+# Permissive, with an express patent grant: the fusion scoring, confidence
+# separation and forecast significance test are the novel parts worth protecting.
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 description = "Terminal-native geopolitical situational awareness and intelligence workspace"
 requires-python = ">=3.12"
 dependencies = [

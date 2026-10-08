@@ -162,3 +162,17 @@ vakula watch earthquakes --interval 300
 ```
 
 The non-social collectors use their documented public feeds. Collection and media access should follow each service's terms and applicable law.
+
+## Licence
+
+Apache-2.0. See [LICENSE](LICENSE).
+
+Permissive: use it, modify it, ship it commercially. Two clauses are worth
+knowing about. There is an **express patent grant**, which matters here because
+the event-fusion scoring model, the four-way confidence separation and the
+forecast slope-standard-error test are the novel parts; and there is a
+**patent-retaliation clause**, so that grant terminates if the patent holder
+initiates patent litigation against a user.
+
+Neither licence nor file grants trademark rights. "Vidur" and "Vakula" remain
+yours.
