@@ -11,6 +11,7 @@ from datetime import datetime
 
 from vidur.collectors import earthquakes, news, weather
 from vidur.agent_reach import AgentReachError, doctor, search_platform, search_twitter
+from vidur.agent import list_ollama_models
 from vidur.storage import init_db, list_items, stats
 
 
@@ -38,6 +39,40 @@ def _report(items: list[dict], target: str | None) -> None:
     print("\nKey items:")
     for item in items[:10]: print(f"- [{item['severity'].upper()}] {item['title']}")
     print("\nAssessment: This brief summarizes public-source data. Verify all claims with primary sources before action.")
+
+
+def _assess(args) -> None:
+    """Produce an assessment, using the local model unless it is unavailable.
+
+    A missing model is not a failure: the deterministic briefing is produced
+    instead and says that no model was consulted.
+    """
+    from vidur import briefing
+    from vidur.agent import AISettings, ModelDiscoveryError
+    from vidur.intelligence_model import NullModel, model_from_settings
+
+    settings = AISettings(mode="local", model="")
+    if not args.no_model:
+        try:
+            installed = list_ollama_models()
+        except ModelDiscoveryError:
+            installed = []
+        # Prefer the project's usual helper, otherwise whatever is already local.
+        # Nothing is downloaded here under any circumstances.
+        preferred = "qwen3:0.6b-q4_K_M"
+        names = [entry["name"] for entry in installed]
+        if preferred in names:
+            settings.model = preferred
+        elif names:
+            settings.model = names[0]
+    model = NullModel() if args.no_model else model_from_settings(settings)
+    result = briefing.assess(args.scope, model=model, window_days=max(1, args.window))
+    if args.json:
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, default=str))
+    else:
+        print()
+        print(result.render())
+    return
 
 
 def _evidence(args) -> None:
@@ -118,6 +153,18 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("target", nargs="?"); report.add_argument("--category"); report.add_argument("--limit", type=int, default=50)
     timeline = sub.add_parser("timeline", help="show intelligence chronologically")
     timeline.add_argument("--category"); timeline.add_argument("--limit", type=int, default=50); timeline.add_argument("--json", action="store_true")
+    assess = sub.add_parser("assess", help="produce an intelligence assessment for a scope")
+    assess.add_argument("scope", nargs="?", default="",
+                        help="curated location, event type, or omit for all activity")
+    assess.add_argument("--json", action="store_true")
+    assess.add_argument("--no-model", action="store_true",
+                        help="deterministic rendering only, no language model consulted")
+    assess.add_argument("--window", type=int, default=14)
+    brief = sub.add_parser("brief", help="generate a full intelligence briefing for a scope")
+    brief.add_argument("scope", nargs="?", default="")
+    brief.add_argument("--json", action="store_true")
+    brief.add_argument("--no-model", action="store_true")
+    brief.add_argument("--window", type=int, default=14)
     evidence = sub.add_parser("evidence", help="retrieve the original source behind an observation")
     evidence.add_argument("reference", help="observation reference, for example OBS-1842")
     evidence.add_argument("--json", action="store_true")
@@ -180,6 +227,8 @@ def main(argv: list[str] | None = None) -> None:
                 print(item["source_url"])
                 print()
         return
+    if args.command in {"assess", "brief"}:
+        return _assess(args)
     if args.command == "evidence":
         return _evidence(args)
     if args.command == "collect":

@@ -160,8 +160,14 @@ def build_state(scope: analytics.Scope = analytics.ALL, *,
     storage.init_db()
     analysis = analytics.analyse(scope, window_days=window_days,
                                  baseline_days=baseline_days, end=end)
-    classification = analytics.classify_events(scope)
-    observation_ids = analytics.scope_observation_ids(scope)
+    # Coverage describes the window being assessed, not the whole record. Without
+    # this the briefing would report every observation ever collected as though
+    # it fell inside these fourteen days.
+    window_start = date.fromisoformat(analysis.window_start)
+    window_end = date.fromisoformat(analysis.window_end)
+    observation_ids = analytics.scope_observation_ids(scope, start=window_start,
+                                                      end=window_end)
+    classification = analytics.classify_events(scope, start=window_start, end=window_end)
     disputes = analytics.unresolved_contradictions(scope)
 
     with storage.connect() as db:

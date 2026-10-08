@@ -31,6 +31,7 @@ MINIMUM_WINDOW_OBSERVATIONS = 3
 
 STATUS_NORMAL = "NORMAL"
 STATUS_ELEVATED = "ELEVATED"
+STATUS_DECLINED = "DECLINED"
 STATUS_UNUSUAL = "UNUSUAL"
 STATUS_SUSTAINED = "SUSTAINED"
 STATUS_INSUFFICIENT = "INSUFFICIENT_DATA"
@@ -54,8 +55,20 @@ class Scope:
         if self.kind == KIND_ALL:
             return "all activity"
         if self.kind == KIND_LOCATION:
-            return f"location {self.value}"
+            return f"location {self.display_name()}"
         return f"event type {self.value}"
+
+    def display_name(self) -> str:
+        """The curated place name, so a briefing reads 'Taiwan Strait'."""
+        if self.kind != KIND_LOCATION:
+            return self.value
+        try:
+            for row in storage.list_locations():
+                if row["key"] == self.value:
+                    return row["name"]
+        except Exception:
+            pass
+        return self.value
 
 
 ALL = Scope()
@@ -172,8 +185,30 @@ def window_end(default: date | None = None) -> date:
     return (default or date.today()) - timedelta(days=1)
 
 
-def scope_observation_ids(scope: Scope) -> list[int]:
-    """Observation ids inside a scope, from the existing relationship links."""
+def scope_observation_ids(scope: Scope, *, start: date | None = None,
+                          end: date | None = None) -> list[int]:
+    """Observation ids inside a scope, from the existing relationship links.
+
+    With a start and end the result is restricted to days in that range, so a
+    coverage figure can describe a window rather than the whole record.
+    """
+    ids = _all_scope_observation_ids(scope)
+    if start is None and end is None:
+        return ids
+    return [observation_id for observation_id in ids
+            if _in_window(storage.get_observation(observation_id), start, end)]
+
+
+def _in_window(record: dict | None, start: date | None, end: date | None) -> bool:
+    if record is None:
+        return False
+    moment = _day(record.get("collected_at", ""))
+    if moment is None:
+        return False
+    return (start is None or moment >= start) and (end is None or moment <= end)
+
+
+def _all_scope_observation_ids(scope: Scope) -> list[int]:
     storage.init_db()
     with storage.connect() as db:
         if scope.kind == KIND_LOCATION:
@@ -193,21 +228,35 @@ def scope_observation_ids(scope: Scope) -> list[int]:
         return [entry[0] for entry in db.execute("SELECT id FROM observations").fetchall()]
 
 
-def scope_event_ids(scope: Scope) -> list[int]:
-    """Event ids inside a scope."""
+def scope_event_ids(scope: Scope, *, start: date | None = None,
+                    end: date | None = None) -> list[int]:
+    """Event ids inside a scope, optionally restricted to a date range."""
     storage.init_db()
     with storage.connect() as db:
         if scope.kind == KIND_EVENT_TYPE:
-            return [entry[0] for entry in db.execute(
-                "SELECT id FROM events WHERE event_type=?", (scope.value.upper(),)).fetchall()]
-        if scope.kind == KIND_LOCATION:
+            rows = db.execute(
+                "SELECT id, start_time, created_at FROM events WHERE event_type=?",
+                (scope.value.upper(),)).fetchall()
+        elif scope.kind == KIND_LOCATION:
             row = db.execute("SELECT id FROM locations WHERE key=? OR name=?",
                              (scope.value, scope.value)).fetchone()
             if row is None:
                 return []
-            return [entry[0] for entry in db.execute(
-                "SELECT id FROM events WHERE location_id=?", (row[0],)).fetchall()]
-        return [entry[0] for entry in db.execute("SELECT id FROM events").fetchall()]
+            rows = db.execute(
+                "SELECT id, start_time, created_at FROM events WHERE location_id=?",
+                (row[0],)).fetchall()
+        else:
+            rows = db.execute("SELECT id, start_time, created_at FROM events").fetchall()
+    if start is None and end is None:
+        return [row["id"] for row in rows]
+    kept = []
+    for row in rows:
+        moment = _day(row["start_time"]) or _day(row["created_at"])
+        if moment is None:
+            continue
+        if (start is None or moment >= start) and (end is None or moment <= end):
+            kept.append(row["id"])
+    return kept
 
 
 def _day(value: str) -> date | None:
@@ -233,23 +282,27 @@ def build_series(scope: Scope, *, start: date, end: date) -> Series:
         event_counts[day] = 0
         observation_counts[day] = 0
 
-    for event_id in event_ids:
+    if event_ids:
+        placeholders = ",".join("?" * len(event_ids))
         with storage.connect() as db:
-            row = db.execute(
-                "SELECT start_time, created_at FROM events WHERE id=?", (event_id,)).fetchone()
-        if row is None:
-            continue
-        moment = _day(row["start_time"]) or _day(row["created_at"])
-        if moment in event_counts:
-            event_counts[moment] += 1
+            stamps = db.execute(
+                f"SELECT start_time, created_at FROM events WHERE id IN ({placeholders})",
+                list(event_ids)).fetchall()
+        for row in stamps:
+            moment = _day(row["start_time"]) or _day(row["created_at"])
+            if moment in event_counts:
+                event_counts[moment] += 1
 
-    for observation_id in observation_ids:
-        record = storage.get_observation(observation_id)
-        if record is None:
-            continue
-        moment = _day(record.get("collected_at", ""))
-        if moment in observation_counts:
-            observation_counts[moment] += 1
+    if observation_ids:
+        placeholders = ",".join("?" * len(observation_ids))
+        with storage.connect() as db:
+            stamps = db.execute(
+                f"SELECT collected_at FROM observations WHERE id IN ({placeholders})",
+                list(observation_ids)).fetchall()
+        for row in stamps:
+            moment = _day(row["collected_at"])
+            if moment in observation_counts:
+                observation_counts[moment] += 1
 
     points = tuple(analytics_day(day, event_counts[day], observation_counts[day]) for day in days)
     return Series(scope=scope, start=start, end=end, points=points)
@@ -316,6 +369,7 @@ def analyse(scope: Scope = ALL, *, window_days: int = DEFAULT_WINDOW_DAYS,
 
     current = build_series(scope, start=window_start, end=finish)
     history = build_series(scope, start=baseline_start, end=window_start - timedelta(days=1))
+    trajectory = history.slope() - current.slope()
 
     baseline_rate = history.rate() if baseline else None
     current_rate = current.rate()
@@ -332,6 +386,10 @@ def analyse(scope: Scope = ALL, *, window_days: int = DEFAULT_WINDOW_DAYS,
     elevated_threshold = (baseline_rate or 0.0) * 1.5
     sustained_segments = (current.segments_above(elevated_threshold)
                           if baseline_rate else 0)
+    # Falling relative to where it came from, so a rising number is not mistaken
+    # for a deteriorating one.
+    declining = (baseline_rate is not None and baseline_rate > 0
+                 and current_rate < baseline_rate * 0.75)
 
     # Ordered most-actionable first: what to go and collect before what to model.
     if observations < MINIMUM_WINDOW_OBSERVATIONS:
@@ -363,6 +421,11 @@ def analyse(scope: Scope = ALL, *, window_days: int = DEFAULT_WINDOW_DAYS,
         basis = (f"{current_rate:.2f} events/day is {change_rate:+.0%} against a "
                  f"{baseline_rate:.2f}/day baseline, inside normal variance at {score:.1f} "
                  "standard deviations")
+    elif declining:
+        status = STATUS_DECLINED
+        basis = (f"{current_rate:.2f} events/day is {change_rate:+.0%} against a "
+                 f"{baseline_rate:.2f}/day baseline; activity has fallen relative to where it "
+                 f"came from (trajectory {trajectory:+.2f}/day)")
     else:
         status = STATUS_NORMAL
         basis = (f"{current_rate:.2f} events/day against a {baseline_rate:.2f}/day baseline, "
@@ -383,6 +446,8 @@ def analyse(scope: Scope = ALL, *, window_days: int = DEFAULT_WINDOW_DAYS,
             "acceleration": round(current.acceleration(), 4),
             "moving_average_7d": current.moving_average(7),
             "elevated_subwindows": sustained_segments,
+            "trajectory_per_day": round(trajectory, 4),
+            "declining": declining,
             "event_types": compare_event_types(scope, window_days=window, end=end),
             "locations": compare_locations(scope, window_days=window, end=end),
         },
@@ -441,7 +506,8 @@ def unresolved_contradictions(scope: Scope = ALL) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def classify_events(scope: Scope = ALL, *, limit: int = 60) -> dict:
+def classify_events(scope: Scope = ALL, *, limit: int = 60,
+                    start: date | None = None, end: date | None = None) -> dict:
     """Split events into confirmed, candidate and unconfirmed.
 
     Analytics is read-only, so this re-derives its answer rather than writing a
@@ -452,7 +518,7 @@ def classify_events(scope: Scope = ALL, *, limit: int = 60) -> dict:
     """
     from vidur import provenance
     storage.init_db()
-    every_event_id = scope_event_ids(scope)
+    every_event_id = scope_event_ids(scope, start=start, end=end)
     event_ids = every_event_id[:limit]
     confirmed, candidates, unconfirmed = [], [], []
     profiles = {}
@@ -465,14 +531,28 @@ def classify_events(scope: Scope = ALL, *, limit: int = 60) -> dict:
         else:
             unconfirmed.append(event_id)
 
+    # Each profile is built once. Rebuilding inside the pair loop made
+    # classification quadratic in database round trips.
+    cache: dict[int, object] = {}
+
+    def profile_for(event_id: int):
+        if event_id not in cache:
+            try:
+                first = provenance.evidence_for_event(event_id)[0].observation.id
+                cache[event_id] = fusion._profile(first)
+            except (IndexError, KeyError, provenance.ProvenanceError):
+                cache[event_id] = None
+        return cache[event_id]
+
     for event_id in list(unconfirmed):
+        left = profile_for(event_id)
+        if left is None:
+            continue
         for other_id in event_ids:
             if other_id == event_id:
                 continue
-            try:
-                left = fusion._profile(provenance.evidence_for_event(event_id)[0].observation.id)
-                right = fusion._profile(provenance.evidence_for_event(other_id)[0].observation.id)
-            except (IndexError, provenance.ProvenanceError):
+            right = profile_for(other_id)
+            if right is None:
                 continue
             if fusion.compare(left, right).verdict == fusion.CANDIDATE:
                 candidates.append(event_id)
@@ -489,7 +569,7 @@ def classify_events(scope: Scope = ALL, *, limit: int = 60) -> dict:
             f"SELECT DISTINCT observation_id FROM event_observations "
             f"WHERE event_id IN ({placeholders})", every_event_id).fetchall()} \
             if every_event_id else set()
-    all_observations = set(scope_observation_ids(scope))
+    all_observations = set(scope_observation_ids(scope, start=start, end=end))
     return {
         "confirmed": sorted(confirmed),
         "candidate": sorted(candidates),

@@ -530,6 +530,40 @@ def list_entities() -> list[dict]:
             "SELECT * FROM entities ORDER BY name COLLATE NOCASE").fetchall()]
 
 
+def save_assessment(region_key: str, body: str, *, state_payload: dict | None = None,
+                    model: str = "", analytic_confidence: float = 0.0,
+                    analytic_basis: str = "", window_days: int = 14,
+                    origin: str = "TEMPLATE") -> int:
+    """Store a generated briefing in ``assessments``.
+
+    Kept strictly apart from source evidence: this is generated prose, recorded
+    with the model that produced it and the deterministic confidence behind it, so
+    a stored briefing can never be mistaken for something a source said. No
+    migration is needed; the table arrived with schema version 3.
+    """
+    init_db()
+    with connect() as db:
+        cursor = db.execute("""
+            INSERT INTO assessments (region_key, created_at, window_days, state_json, body,
+                                    origin, model, analytic_confidence, analytic_basis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (region_key, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              int(window_days), json.dumps(state_payload or {}, ensure_ascii=False, default=str),
+              body, origin, model, clamp_confidence_value(analytic_confidence), analytic_basis))
+        return int(cursor.lastrowid)
+
+
+def clamp_confidence_value(value) -> float:
+    """Keep a stored confidence inside 0.0-1.0 without importing the domain layer."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if number != number:
+        return 0.0
+    return round(max(0.0, min(1.0, number)), 4)
+
+
 def contradictions_for_event(event_id: int) -> list[dict]:
     """Every recorded dispute for an event, unresolved ones included."""
     init_db()

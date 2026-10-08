@@ -255,11 +255,25 @@ class VidurApp(App[None]):
             title = textwrap.shorten(item.get("title", ""), width=88, placeholder="…")
             table.add_row(when, item.get("category", ""), item.get("severity", "").upper(), title,
                           key=str(item["id"]))
+        # Structured measurements only. Any briefing prose lives in Research.
         self.query_one("#overview-status", Static).update(
             f"LOCAL SITUATION  ·  {summary['total']} intelligence items  ·  "
             f"{summary['source_items']} source posts  ·  latest collection {summary['latest'] or 'none'}\n"
+            f"{self._intelligence_line()}\n"
             f"Database: {summary['database']}"
         )
+
+    def _intelligence_line(self) -> str:
+        """One line of measured intelligence state for the Overview tab."""
+        try:
+            from vidur import analytics
+            built = analytics.analyse()
+            observations = int(built.metrics.get("window_observations") or 0)
+            return (f"INTELLIGENCE  ·  {observations} observation(s) in "
+                    f"{built.window_days}d  ·  activity {built.status}  ·  "
+                    f"type /assess <scope> in Research for an assessment")
+        except Exception:
+            return "INTELLIGENCE  ·  not yet available"
 
     def fetch_weather(self) -> None:
         location = self.query_one("#weather-location", Input).value.strip()
@@ -533,10 +547,39 @@ class VidurApp(App[None]):
             _post_from_worker(self, self.log_activity, "MODEL · download complete")
             _post_from_worker(self, self.discover_models_worker)
 
+    @work(thread=True, exclusive=True, group="assess")
+    def assess_worker(self, scope: str) -> None:
+        """Generate an assessment off the UI thread and hand back the text.
+
+        Everything factual in the briefing is computed by the intelligence
+        pipeline; the model only writes the prose section. A missing model yields
+        the deterministic rendering instead of an error.
+        """
+        from vidur import briefing
+        from vidur.intelligence_model import NullModel, model_from_settings
+        model = NullModel() if not (self.settings.enabled and self.settings.model) \
+            else model_from_settings(self.settings)
+        try:
+            result = briefing.assess(scope, model=model)
+        except Exception as exc:
+            _post_from_worker(self, self._show_error, f"Assessment failed: {exc}")
+            return
+        _post_from_worker(self, self._assessment_ready, result)
+
+    def _assessment_ready(self, result) -> None:
+        """Structured intelligence and generated prose are shown separately."""
+        counts = result.to_dict()
+        self.log_activity(
+            f"INTEL · {result.scope} · {result.data_quality} · "
+            f"{len(counts['claims'])} classified claim(s) · "
+            f"prose: {result.model_name if result.model_used else 'deterministic only'}"
+        )
+        self.query_one("#answer", Static).update(result.render())
+
     def handle_command(self, command: str) -> None:
         name, _, value = command.strip().partition(" ")
         if name in {"/help", "/"}:
-            self.log_activity("COMMANDS · /x <query> · /sources · /models · /local [model] · /mode local|provider · /provider base|model|key · /search <query> · /open <url> · /status")
+            self.log_activity("COMMANDS · /x <query> · /sources · /models · /local [model] · /mode local|provider · /provider base|model|key · /search <query> · /open <url> · /status · /assess <scope>")
         elif name == "/x" and value:
             self.query_one("#source-platform", Select).value = "x"
             self.submit_source_search(value)
@@ -578,6 +621,8 @@ class VidurApp(App[None]):
                 f"STATUS · source posts={data['source_items']} · intelligence items={data['total']} · "
                 f"database={data['database']} · model={self.settings.model or 'none'}"
             )
+        elif name in {"/assess", "/brief"} and value:
+            self.assess_worker(value)
         else:
             self.log_activity("ERROR · unknown or incomplete command; use /help")
 
