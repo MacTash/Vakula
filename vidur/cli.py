@@ -40,6 +40,51 @@ def _report(items: list[dict], target: str | None) -> None:
     print("\nAssessment: This brief summarizes public-source data. Verify all claims with primary sources before action.")
 
 
+def _evidence(args) -> None:
+    """Print the stored source text behind one observation, verbatim."""
+    from vidur.provenance import (ProvenanceError, events_for_observation, get_observation,
+                                  source_name)
+    try:
+        observation = get_observation(args.reference)
+    except ProvenanceError as error:
+        print(f"{error}", file=sys.stderr)
+        raise SystemExit(1)
+    linked = events_for_observation(observation.reference)
+    if args.json:
+        print(json.dumps({
+            "observation": {
+                "reference": observation.reference, "source": source_name(observation),
+                "platform": observation.platform, "author": observation.author,
+                "timestamp": observation.timestamp, "collected_at": observation.collected_at,
+                "url": observation.url, "hash": observation.content_hash,
+                "language": observation.language, "saved": observation.saved,
+            },
+            "content": observation.content,
+            "events": [{"reference": event.reference, "type": event.event_type,
+                        "title": event.title, "confidence": event.confidence}
+                       for event in linked],
+        }, ensure_ascii=False, indent=2, default=str))
+        return
+    print(f"\nVIDUR // EVIDENCE {observation.reference}")
+    print("=" * 62)
+    print(f"SOURCE     : {source_name(observation)}  ({observation.platform or 'unknown platform'})")
+    print(f"AUTHOR     : {observation.author or 'not provided'}")
+    print(f"PUBLISHED  : {observation.timestamp or 'time not provided'}")
+    print(f"COLLECTED  : {observation.collected_at}")
+    print(f"URL        : {observation.url or 'not provided'}")
+    print(f"HASH       : {observation.content_hash or 'none recorded'}")
+    if linked:
+        print("EVENTS     : " + ", ".join(f"{event.reference} {event.event_type}" for event in linked))
+    else:
+        print("EVENTS     : not yet linked to an event")
+    print("-" * 62)
+    print("SOURCE TEXT AS RETURNED BY THE SOURCE")
+    print("-" * 62)
+    print(observation.content or "[This source returned no text.]")
+    print("-" * 62)
+    print("This text is stored as retrieved and is never replaced by a summary or by model output.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vidur", description="Terminal-native situational awareness workspace")
     sub = parser.add_subparsers(dest="command")
@@ -73,6 +118,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("target", nargs="?"); report.add_argument("--category"); report.add_argument("--limit", type=int, default=50)
     timeline = sub.add_parser("timeline", help="show intelligence chronologically")
     timeline.add_argument("--category"); timeline.add_argument("--limit", type=int, default=50); timeline.add_argument("--json", action="store_true")
+    evidence = sub.add_parser("evidence", help="retrieve the original source behind an observation")
+    evidence.add_argument("reference", help="observation reference, for example OBS-1842")
+    evidence.add_argument("--json", action="store_true")
     watch = sub.add_parser("watch", help="periodically refresh a safe public collector")
     watch.add_argument("collector", choices=("earthquakes",)); watch.add_argument("--interval", type=int, default=300)
     return parser
@@ -132,6 +180,8 @@ def main(argv: list[str] | None = None) -> None:
                 print(item["source_url"])
                 print()
         return
+    if args.command == "evidence":
+        return _evidence(args)
     if args.command == "collect":
         try:
             if args.collector == "earthquakes": items = earthquakes(args.min_magnitude)

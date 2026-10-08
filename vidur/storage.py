@@ -13,6 +13,8 @@ from typing import Iterator
 
 from platformdirs import user_cache_path, user_data_path
 
+from vidur.schema import migrate
+
 APP_NAME = "vidur"
 LEGACY_APP_NAME = "geoscope"
 DATABASE_FILE = "vidur.db"
@@ -101,49 +103,9 @@ def connect() -> Iterator[sqlite3.Connection]:
 
 
 def init_db() -> Path:
+    """Create or forward-migrate Vidur's database. Safe to call repeatedly."""
     with connect() as db:
-        version = db.execute("PRAGMA user_version").fetchone()[0]
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS intelligence (
-                id INTEGER PRIMARY KEY,
-                collected_at TEXT NOT NULL,
-                category TEXT NOT NULL,
-                title TEXT NOT NULL,
-                summary TEXT NOT NULL DEFAULT '',
-                source TEXT NOT NULL DEFAULT '',
-                source_url TEXT NOT NULL DEFAULT '',
-                location TEXT NOT NULL DEFAULT '',
-                latitude REAL,
-                longitude REAL,
-                severity TEXT NOT NULL DEFAULT 'info',
-                confidence REAL NOT NULL DEFAULT 0.5,
-                tags TEXT NOT NULL DEFAULT '[]',
-                raw_json TEXT NOT NULL DEFAULT '{}',
-                UNIQUE(category, source_url, title)
-            );
-            CREATE INDEX IF NOT EXISTS idx_intel_collected ON intelligence(collected_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_intel_category ON intelligence(category);
-
-            CREATE TABLE IF NOT EXISTS source_items (
-                id INTEGER PRIMARY KEY,
-                source_key TEXT NOT NULL,
-                platform TEXT NOT NULL,
-                author TEXT NOT NULL DEFAULT '',
-                body TEXT NOT NULL DEFAULT '',
-                source_url TEXT NOT NULL DEFAULT '',
-                published_at TEXT NOT NULL DEFAULT '',
-                fetched_at TEXT NOT NULL,
-                backend TEXT NOT NULL DEFAULT '',
-                media_json TEXT NOT NULL DEFAULT '[]',
-                raw_json TEXT NOT NULL DEFAULT '{}',
-                saved INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(platform, source_key)
-            );
-            CREATE INDEX IF NOT EXISTS idx_source_items_fetched ON source_items(fetched_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_source_items_platform ON source_items(platform);
-        """)
-        if version < 2:
-            db.execute("PRAGMA user_version = 2")
+        migrate(db)
     return database_path()
 
 
@@ -201,8 +163,20 @@ def stats() -> dict:
             "latest": recent, "database": str(database_path())}
 
 
+def content_digest(text: str) -> str:
+    """Stable digest of source text, used to detect a publisher's later edit."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def save_source_item(item: dict) -> int:
-    """Persist a source post without rewriting its body or media metadata."""
+    """Persist a source post without rewriting its body or media metadata.
+
+    ``body`` follows the newest fetch so the Live Feed stays current, while
+    ``original_content`` and ``content_hash`` are written once and never
+    updated. That is what makes provenance durable: an assessment citing an
+    observation keeps pointing at the text the source first returned, even if
+    the publisher edits the post afterwards.
+    """
     init_db()
     now = datetime.now(timezone.utc).isoformat()
     platform = str(item.get("platform", "unknown")).lower()
@@ -213,11 +187,14 @@ def save_source_item(item: dict) -> int:
             .encode("utf-8")
         ).hexdigest()
         source_key = digest
+    body = str(item.get("body", ""))
     values = {
         "source_key": source_key,
         "platform": platform,
         "author": str(item.get("author", "")),
-        "body": str(item.get("body", "")),
+        "body": body,
+        "original_content": body,
+        "content_hash": content_digest(body),
         "source_url": str(item.get("source_url", "")),
         "published_at": str(item.get("published_at", "")),
         "fetched_at": str(item.get("fetched_at") or now),
@@ -228,19 +205,20 @@ def save_source_item(item: dict) -> int:
     with connect() as db:
         db.execute("""
             INSERT INTO source_items
-              (source_key, platform, author, body, source_url, published_at, fetched_at,
-               backend, media_json, raw_json)
-            VALUES (:source_key, :platform, :author, :body, :source_url, :published_at,
-                    :fetched_at, :backend, :media_json, :raw_json)
+              (source_key, platform, author, body, original_content, content_hash,
+               source_url, published_at, fetched_at, backend, media_json, raw_json)
+            VALUES (:source_key, :platform, :author, :body, :original_content, :content_hash,
+                    :source_url, :published_at, :fetched_at, :backend, :media_json, :raw_json)
             ON CONFLICT(platform, source_key) DO UPDATE SET
               author=excluded.author, body=excluded.body, source_url=excluded.source_url,
               published_at=excluded.published_at, fetched_at=excluded.fetched_at,
-              backend=excluded.backend, media_json=excluded.media_json, raw_json=excluded.raw_json
+              backend=excluded.backend, media_json=excluded.media_json, raw_json=excluded.raw_json,
+              original_content=COALESCE(NULLIF(source_items.original_content, ''), excluded.original_content),
+              content_hash=COALESCE(NULLIF(source_items.content_hash, ''), excluded.content_hash)
         """, values)
         row = db.execute("SELECT id FROM source_items WHERE platform=? AND source_key=?",
                          (platform, source_key)).fetchone()
         return int(row[0])
-
 
 def list_source_items(query: str | None = None, *, platform: str | None = None,
                       saved: bool | None = None, limit: int = 100) -> list[dict]:
@@ -274,3 +252,119 @@ def set_source_saved(item_id: int, saved: bool) -> bool:
     with connect() as db:
         cursor = db.execute("UPDATE source_items SET saved=? WHERE id=?", (int(saved), item_id))
         return cursor.rowcount > 0
+
+
+def ensure_source(platform: str, backend: str = "", *, source_type: str = "OTHER",
+                  name: str = "") -> int:
+    """Return the id of the source that published this channel, creating it once.
+
+    The key is the platform plus the backend Agent Reach reported, so two
+    different backends for the same platform stay distinguishable in
+    provenance while still sharing one row per publisher.
+    """
+    init_db()
+    platform = (platform or "unknown").strip().lower()
+    backend = (backend or "").strip()
+    key = f"{platform}:{backend}" if backend else platform
+    now = datetime.now(timezone.utc).isoformat()
+    with connect() as db:
+        db.execute("""
+            INSERT INTO sources (key, name, source_type, created_at, updated_at)
+            VALUES (:key, :name, :source_type, :now, :now)
+            ON CONFLICT(key) DO UPDATE SET updated_at=excluded.updated_at
+        """, {"key": key, "name": name or backend or platform,
+              "source_type": source_type or "OTHER", "now": now})
+        row = db.execute("SELECT id FROM sources WHERE key=?", (key,)).fetchone()
+        return int(row[0])
+
+
+def insert_observation(item: dict, *, source_type: str = "OTHER", language: str = "") -> int:
+    """Store one retrieved source record as an observation and return its id.
+
+    This is the intelligence layer's write path and it goes through
+    :func:`save_source_item`, so there is exactly one place where source text is
+    stored. Nothing here summarises, translates or rewrites the body.
+    """
+    observation_id = save_source_item(item)
+    source_id = ensure_source(
+        str(item.get("platform", "unknown")), str(item.get("backend", "")), source_type=source_type)
+    with connect() as db:
+        db.execute("UPDATE source_items SET source_id=?, source_type=?, language=? WHERE id=?",
+                   (source_id, source_type, language, observation_id))
+    return observation_id
+
+
+def _decode_observation(row: sqlite3.Row | dict) -> dict:
+    """Row to dict, with attachments and metadata additionally decoded.
+
+    ``metadata`` is kept as the raw JSON string the source returned, because
+    that is what provenance has to reproduce; ``metadata_dict`` is a convenience
+    for callers that would rather not parse it.
+    """
+    record = dict(row)
+    record["saved"] = bool(record.get("saved"))
+    try:
+        attachments = json.loads(record.pop("media", None) or "[]")
+    except (TypeError, ValueError):
+        attachments = []
+    record["media"] = attachments if isinstance(attachments, list) else []
+    try:
+        payload = json.loads(record.get("metadata") or "{}")
+    except (TypeError, ValueError):
+        payload = {}
+    record["metadata_dict"] = payload if isinstance(payload, dict) else {}
+    return record
+
+
+def get_observation(observation_id: int) -> dict | None:
+    """Read one observation by its numeric id, through the canonical view."""
+    init_db()
+    with connect() as db:
+        row = db.execute("SELECT * FROM observations WHERE id=?", (int(observation_id),)).fetchone()
+    return _decode_observation(row) if row else None
+
+
+def list_observations(query: str | None = None, *, platform: str | None = None,
+                      source_id: int | None = None, limit: int = 100) -> list[dict]:
+    """List observations newest first, optionally filtered."""
+    init_db()
+    conditions, values = [], []
+    if query:
+        conditions.append("(content LIKE ? OR author LIKE ? OR platform LIKE ? OR url LIKE ?)")
+        values.extend([f"%{query}%"] * 4)
+    if platform:
+        conditions.append("platform = ?")
+        values.append(platform.lower())
+    if source_id is not None:
+        conditions.append("source_id = ?")
+        values.append(int(source_id))
+    statement = "SELECT * FROM observations"
+    if conditions:
+        statement += " WHERE " + " AND ".join(conditions)
+    statement += " ORDER BY collected_at DESC LIMIT ?"
+    values.append(max(1, min(limit, 500)))
+    with connect() as db:
+        return [_decode_observation(row) for row in db.execute(statement, values).fetchall()]
+
+
+def list_sources() -> list[dict]:
+    """Every registered source. Unrated sources are returned with None reliability."""
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM sources ORDER BY name COLLATE NOCASE").fetchall()]
+
+
+def observation_stats() -> dict:
+    """Counts used by the status command and the TUI overview."""
+    init_db()
+    with connect() as db:
+        observations = db.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+        events = db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        entities = db.execute("SELECT COUNT(*) FROM entities").fetchone()[0]
+        locations = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
+        sources = db.execute("SELECT COUNT(*) FROM sources").fetchone()[0]
+        hashed = db.execute(
+            "SELECT COUNT(*) FROM observations WHERE \"hash\" != ''").fetchone()[0]
+    return {"observations": observations, "hashed_observations": hashed, "events": events,
+            "entities": entities, "locations": locations, "sources": sources}
