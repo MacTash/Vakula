@@ -3,7 +3,7 @@
 Everything here is a pure function of the string it is given: no model, no
 network, no randomness, no learning. That is deliberate. A 0.6B model asked to
 pull out entities invents them, and an invented entity quietly becomes evidence
-downstream. So Vidur only recognises what :mod:`vidur.gazetteer` already knows
+downstream. So Vakula only recognises what :mod:`vakula.gazetteer` already knows
 and reports nothing at all otherwise. An unrecognised name yields UNKNOWN, which
 is a safe answer; a hallucinated one is not.
 
@@ -20,7 +20,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from vidur import gazetteer, storage
+from vakula import gazetteer, storage
 
 # Spans this long are still matched in full; the cap exists only so a runaway
 # document cannot dominate the event loop.
@@ -122,7 +122,7 @@ class Quantity:
 
 @dataclass(frozen=True)
 class Extraction:
-    """Everything Vidur could determine from a document without guessing."""
+    """Everything Vakula could determine from a document without guessing."""
 
     language: str = ""
     locations: tuple[Mention, ...] = ()

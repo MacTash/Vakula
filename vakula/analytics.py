@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from vidur import confidence, fusion, storage
+from vakula import confidence, fusion, storage
 
 # Minimum days of baseline before a comparison means anything at all.
 MINIMUM_BASELINE_DAYS = 7
@@ -517,7 +517,7 @@ def classify_events(scope: Scope = ALL, *, limit: int = 60,
     another event inside the candidate band without confirming. "No confirmed
     event" means nothing was corroborated; it does not mean nothing happened.
     """
-    from vidur import provenance
+    from vakula import provenance
     storage.init_db()
     every_event_id = scope_event_ids(scope, start=start, end=end)
     event_ids = every_event_id[:limit]

@@ -9,10 +9,10 @@ import time
 from collections import Counter
 from datetime import datetime
 
-from vidur.collectors import earthquakes, news, weather
-from vidur.agent_reach import AgentReachError, doctor, search_platform, search_twitter
-from vidur.agent import list_ollama_models
-from vidur.storage import init_db, list_items, stats
+from vakula.collectors import earthquakes, news, weather
+from vakula.agent_reach import AgentReachError, doctor, search_platform, search_twitter
+from vakula.agent import list_ollama_models
+from vakula.storage import init_db, list_items, stats
 
 
 def _render(items: list[dict], as_json: bool = False) -> None:
@@ -29,9 +29,9 @@ def _render(items: list[dict], as_json: bool = False) -> None:
 
 def _report(items: list[dict], target: str | None) -> None:
     title = target or "Stored intelligence"
-    print(f"\nVIDUR SITUATION BRIEF — {title}\n{'=' * 58}")
+    print(f"\nVAKULA SITUATION BRIEF — {title}\n{'=' * 58}")
     if not items:
-        print("No matching intelligence is stored. Run `vidur collect` first."); return
+        print("No matching intelligence is stored. Run `vakula collect` first."); return
     counts = Counter(item["category"] for item in items)
     risks = Counter(item["severity"] for item in items)
     print("Coverage: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
@@ -43,7 +43,7 @@ def _report(items: list[dict], target: str | None) -> None:
 
 def _watchlist(args) -> None:
     """Local watch targets. Purely database state, no network involved."""
-    from vidur.storage import add_watchlist, list_watchlists, remove_watchlist
+    from vakula.storage import add_watchlist, list_watchlists, remove_watchlist
     if args.watchlist_command == "add":
         row_id, created = add_watchlist(args.target, note=args.note)
         print(f"{'Added' if created else 'Already watching'}: {args.target} (id {row_id})")
@@ -56,7 +56,7 @@ def _watchlist(args) -> None:
         return
     targets = list_watchlists()
     if not targets:
-        print("No watch targets. Add one with `vidur watchlist add <target>`.")
+        print("No watch targets. Add one with `vakula watchlist add <target>`.")
         return
     print(f"\nACTIVE WATCHES\n{'=' * 58}")
     for row in targets:
@@ -71,9 +71,9 @@ def _assess(args) -> None:
     A missing model is not a failure: the deterministic briefing is produced
     instead and says that no model was consulted.
     """
-    from vidur import briefing
-    from vidur.agent import AISettings, ModelDiscoveryError
-    from vidur.intelligence_model import NullModel, model_from_settings
+    from vakula import briefing
+    from vakula.agent import AISettings, ModelDiscoveryError
+    from vakula.intelligence_model import NullModel, model_from_settings
 
     settings = AISettings(mode="local", model="")
     if not args.no_model:
@@ -101,7 +101,7 @@ def _assess(args) -> None:
 
 def _evidence(args) -> None:
     """Print the stored source text behind one observation, verbatim."""
-    from vidur.provenance import (ProvenanceError, events_for_observation, get_observation,
+    from vakula.provenance import (ProvenanceError, events_for_observation, get_observation,
                                   source_name)
     try:
         observation = get_observation(args.reference)
@@ -124,7 +124,7 @@ def _evidence(args) -> None:
                        for event in linked],
         }, ensure_ascii=False, indent=2, default=str))
         return
-    print(f"\nVIDUR // EVIDENCE {observation.reference}")
+    print(f"\nVAKULA // EVIDENCE {observation.reference}")
     print("=" * 62)
     print(f"SOURCE     : {source_name(observation)}  ({observation.platform or 'unknown platform'})")
     print(f"AUTHOR     : {observation.author or 'not provided'}")
@@ -145,9 +145,9 @@ def _evidence(args) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="vidur", description="Terminal-native situational awareness workspace")
+    parser = argparse.ArgumentParser(prog="vakula", description="Terminal-native situational awareness workspace")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("init", help="create Vidur's local database")
+    sub.add_parser("init", help="create Vakula's local database")
     sub.add_parser("tui", help="open the interactive research terminal")
     sub.add_parser("status", help="show local workspace status")
     sub.add_parser("sources", help="show Agent Reach source-channel status")
@@ -174,7 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
         p = intel_sub.add_parser(name)
         # Optional for both. Historically `list` required a positional that
         # defaulted to the literal "*", which then became part of the LIKE pattern
-        # and matched nothing, so `vidur intel list '*'` returned an empty result
+        # and matched nothing, so `vakula intel list '*'` returned an empty result
         # while status reported stored items. An omitted or bare "*" now means
         # "no text filter", which is what a caller asking to list everything means.
         p.add_argument("query", nargs="?")
@@ -218,7 +218,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "init": print(f"Initialized {init_db()}"); return
     init_db()
     if args.command == "tui":
-        from vidur.tui import run
+        from vakula.tui import run
         run(); return
     if args.command == "status":
         data = stats(); print(f"Database: {data['database']}\nItems: {data['total']}\nLatest: {data['latest'] or '—'}")
@@ -247,7 +247,7 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"{item['author']} · {item['published_at']} · {item['backend']}")
                 print(item["body"])
                 print(item["source_url"])
-                if item["media"]: print(f"{len(item['media'])} attachment(s) · view in `vidur tui`")
+                if item["media"]: print(f"{len(item['media'])} attachment(s) · view in `vakula tui`")
                 print()
         return
     if args.command == "source-search":

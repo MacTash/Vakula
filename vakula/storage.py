@@ -1,4 +1,4 @@
-"""Small, portable SQLite store owned exclusively by Vidur."""
+"""Small, portable SQLite store owned exclusively by Vakula."""
 
 from __future__ import annotations
 
@@ -13,40 +13,53 @@ from typing import Iterator
 
 from platformdirs import user_cache_path, user_data_path
 
-from vidur.schema import migrate
+from vakula.schema import migrate
 
-APP_NAME = "vidur"
-LEGACY_APP_NAME = "geoscope"
-DATABASE_FILE = "vidur.db"
-LEGACY_DATABASE_FILE = "geoscope.db"
+APP_NAME = "vakula"
+# Earlier names, newest first. An install from either release keeps its data.
+LEGACY_APP_NAMES = ("vidur", "geoscope")
+DATABASE_FILE = "vakula.db"
+LEGACY_DATABASE_FILES = ("vidur.db", "geoscope.db")
 
 
-def setting(name: str, legacy: str) -> str:
-    """Read a VIDUR_* setting, falling back to the pre-rename GEOSCOPE_* name."""
-    return os.environ.get(name) or os.environ.get(legacy) or ""
+def setting(name: str, *legacy: str) -> str:
+    """Read a VAKULA_* setting, falling back through each earlier name.
+
+    Vidur and Geoscope were both real releases, so both prefixes stay honoured.
+    The current name always wins when more than one is set.
+    """
+    for candidate in (name, *legacy):
+        value = os.environ.get(candidate)
+        if value:
+            return value
+    return ""
 
 
 def default_data_dir() -> Path:
-    configured = setting("VIDUR_DATA_DIR", "GEOSCOPE_DATA_DIR")
+    configured = setting("VAKULA_DATA_DIR", "VIDUR_DATA_DIR", "GEOSCOPE_DATA_DIR")
     if configured:
         return Path(configured).expanduser()
     current = Path(user_data_path(APP_NAME, appauthor=False))
-    legacy = Path(user_data_path(LEGACY_APP_NAME, appauthor=False))
-    # A pre-rename install already has a populated geoscope directory. Keep using
-    # it rather than stranding its database in a directory Vidur never reads.
-    if not current.exists() and legacy.is_dir():
-        return legacy
+    if current.exists():
+        return current
+    for name in LEGACY_APP_NAMES:
+        legacy = Path(user_data_path(name, appauthor=False))
+        if legacy.is_dir():
+            return legacy
     return current
 
 
 def cache_dir() -> Path:
-    configured = setting("VIDUR_CACHE_DIR", "GEOSCOPE_CACHE_DIR")
+    configured = setting("VAKULA_CACHE_DIR", "VIDUR_CACHE_DIR", "GEOSCOPE_CACHE_DIR")
     if configured:
         return Path(configured).expanduser()
     current = Path(user_cache_path(APP_NAME, appauthor=False))
-    legacy = Path(user_cache_path(LEGACY_APP_NAME, appauthor=False))
-    if not current.exists() and legacy.is_dir():
-        return legacy
+    if current.exists():
+        return current
+    for name in LEGACY_APP_NAMES:
+        legacy = Path(user_cache_path(name, appauthor=False))
+        if legacy.is_dir():
+            return legacy
     return current
 
 
@@ -54,9 +67,10 @@ def database_path() -> Path:
     folder = default_data_dir()
     if (folder / DATABASE_FILE).exists():
         return folder / DATABASE_FILE
-    legacy = folder / LEGACY_DATABASE_FILE
-    if legacy.is_file():
-        return legacy
+    for name in LEGACY_DATABASE_FILES:
+        candidate = folder / name
+        if candidate.is_file():
+            return candidate
     return folder / DATABASE_FILE
 
 
@@ -81,11 +95,10 @@ def _migrate_project_database(target: Path) -> None:
     if target.exists():
         return
     data = project / "data"
-    for candidate in (data / DATABASE_FILE, data / LEGACY_DATABASE_FILE):
+    for candidate in (data / DATABASE_FILE, *(data / name for name in LEGACY_DATABASE_FILES)):
         if candidate.is_file():
             _copy_database(candidate, target)
             return
-
 
 
 @contextmanager
@@ -106,7 +119,7 @@ _gazetteer_seeded = False
 
 
 def init_db() -> Path:
-    """Create or forward-migrate Vidur's database. Safe to call repeatedly.
+    """Create or forward-migrate Vakula's database. Safe to call repeatedly.
 
     Also seeds the curated gazetteer once per process, before any extraction can
     run, so a link in the database always refers to an entry a person curated.
@@ -119,7 +132,7 @@ def init_db() -> Path:
         # so this flag doubles as the re-entrancy guard.
         _gazetteer_seeded = True
         try:
-            from vidur import gazetteer
+            from vakula import gazetteer
             gazetteer.seed()
         except Exception:
             _gazetteer_seeded = False
@@ -315,7 +328,7 @@ def insert_observation(item: dict, *, source_type: str = "OTHER", language: str 
         db.execute("UPDATE source_items SET source_id=?, source_type=?, language=? WHERE id=?",
                    (source_id, source_type, language, observation_id))
     if enrich:
-        from vidur.extract import enrich_observation
+        from vakula.extract import enrich_observation
         enrich_observation(observation_id)
     return observation_id
 

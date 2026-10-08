@@ -2,11 +2,11 @@ import inspect
 
 import pytest
 
-from vidur import confidence, contradiction, fusion, gazetteer, graph, provenance, storage
+from vakula import confidence, contradiction, fusion, gazetteer, graph, provenance, storage
 
 
 def _seed(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
 

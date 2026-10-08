@@ -1,6 +1,6 @@
 """Traversal over the relationship table. A lookup table, not a graph database.
 
-Every edge Vidur stores is already a row, so walking the graph is an indexed
+Every edge Vakula stores is already a row, so walking the graph is an indexed
 SQLite query with a visited set. That is enough at this scale and keeps the
 whole thing inside one file with no dependency.
 
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from vidur import storage
+from vakula import storage
 
 DEFAULT_MAX_DEPTH = 3
 

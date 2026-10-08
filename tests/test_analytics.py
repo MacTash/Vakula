@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from vidur import analytics, confidence, forecast, fusion, state, storage
+from vakula import analytics, confidence, forecast, fusion, state, storage
 
 # A fixed "today" so every calculation is reproducible and no test depends on the
 # wall clock.
@@ -26,9 +26,9 @@ def _fill(offsets, per_day=(), *, event_type="MILITARY_ACTIVITY", **kwargs):
 
 
 def _seed(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
-    from vidur import gazetteer
+    from vakula import gazetteer
     gazetteer.seed(storage)
 
 
@@ -406,7 +406,7 @@ def test_candidates_are_never_silently_promoted(monkeypatch, tmp_path):
 
 
 def fusion_evidence(event_id):
-    from vidur import provenance
+    from vakula import provenance
     return provenance.evidence_for_event(event_id)
 
 

@@ -17,7 +17,7 @@ against the record.
 The model is told to tag its prose with these same categories. Prose that arrives
 untagged is quarantined rather than printed, which is what stops injected text
 from being able to present itself as an assessment. The forecast probability is
-emitted by this module from :mod:`vidur.forecast`, never taken from a reply, so
+emitted by this module from :mod:`vakula.forecast`, never taken from a reply, so
 a model that "corrects" the number is simply contradicting itself in a field
 that is not its own.
 """
@@ -28,8 +28,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
-from vidur import analytics, confidence, forecast as forecast_module, provenance, state, storage
-from vidur.intelligence_model import (IntelligenceModel, ModelUnavailableError,
+from vakula import analytics, confidence, forecast as forecast_module, provenance, state, storage
+from vakula.intelligence_model import (IntelligenceModel, ModelUnavailableError,
                                       model_from_settings, NullModel)
 
 OBSERVED = "OBSERVED"
@@ -49,7 +49,7 @@ SOURCE_DATA_OPEN = "BEGIN SOURCE DATA"
 SOURCE_DATA_CLOSE = "END SOURCE DATA"
 
 SYSTEM_PROMPT = (
-    "You are the prose layer of Vidur, a terminal intelligence workspace. You write "
+    "You are the prose layer of Vakula, a terminal intelligence workspace. You write "
     "sentences. You do not decide what happened.\n"
     "Rules you must follow:\n"
     "1. Write one statement per line, and begin every line with a tag: [INFERRED], "
@@ -113,7 +113,7 @@ class Briefing:
 
     def render(self) -> str:
         parts = [
-            "VIDUR // INTELLIGENCE ASSESSMENT",
+            "VAKULA // INTELLIGENCE ASSESSMENT",
             "=" * 62,
             f"SCOPE          {self.scope}",
             f"WINDOW         {self.window}",

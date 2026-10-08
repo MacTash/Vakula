@@ -3,13 +3,12 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# The import package, CLI, data file and GitHub repo are all plain "vidur".
-# Publishing note: PyPI "vidur" is held by Georgia Tech / Microsoft (an LLM
-# inference cluster simulator), so a future PyPI release must ship under a
-# distinct slug — vidur-scope is free on both PyPI and npm — or install from
-# git. npm "vidur" itself is unclaimed, so the launcher needs no scope.
-name = "vidur"
-version = "0.2.0"
+# The import package, CLI, data file, GitHub repo, PyPI name and npm name are
+# all plain "vakula". Earlier releases shipped as Geoscope and then Vidur; both
+# prefixes and both database filenames stay honoured so an existing install
+# keeps its data. See vakula/storage.py -> LEGACY_APP_NAMES.
+name = "vakula"
+version = "0.4.0"
 description = "Terminal-native geopolitical situational awareness and intelligence workspace"
 requires-python = ">=3.12"
 dependencies = [
@@ -26,10 +25,10 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-vidur = "vidur.cli:main"
+vakula = "vakula.cli:main"
 
 [tool.setuptools.package-data]
-vidur = ["*.tcss"]
+vakula = ["*.tcss"]
 
 [tool.setuptools.packages.find]
-include = ["vidur*"]
+include = ["vakula*"]

@@ -1,10 +1,10 @@
 import sqlite3
 
-from vidur import schema, storage
+from vakula import schema, storage
 
 
 def _legacy_database(path, *, version, statements):
-    """Build a database the way an earlier Vidur release would have left it."""
+    """Build a database the way an earlier Vakula release would have left it."""
     db = sqlite3.connect(path)
     db.executescript(statements)
     db.execute(f"PRAGMA user_version = {version}")
@@ -17,7 +17,7 @@ def test_migration_brings_a_version_zero_database_forward(monkeypatch, tmp_path)
     # is exactly what the first-launch copy produces.
     database = tmp_path / "legacy.db"
     _legacy_database(database, version=0, statements=schema._V1)
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(storage, "database_path", lambda: database)
 
     assert storage.init_db() == database
@@ -40,7 +40,7 @@ def test_migration_preserves_existing_rows(monkeypatch, tmp_path):
     db.commit()
     db.close()
 
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(storage, "database_path", lambda: database)
     storage.init_db()
 
@@ -49,7 +49,7 @@ def test_migration_preserves_existing_rows(monkeypatch, tmp_path):
 
 
 def test_migration_is_idempotent(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     for _ in range(3):
         storage.init_db()
     assert sqlite3.connect(storage.database_path()).execute(
@@ -59,7 +59,7 @@ def test_migration_is_idempotent(monkeypatch, tmp_path):
 def test_migration_from_version_two_adds_columns(monkeypatch, tmp_path):
     database = tmp_path / "v2.db"
     _legacy_database(database, version=2, statements=schema._V1 + schema._V2)
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(storage, "database_path", lambda: database)
 
     storage.init_db()

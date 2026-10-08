@@ -7,9 +7,9 @@ from urllib.parse import quote_plus
 
 import requests
 
-from vidur.storage import add_item
+from vakula.storage import add_item
 
-USER_AGENT = "Vidur/0.2.0 (+https://github.com/MacTash/vidur)"
+USER_AGENT = "Vakula/0.2.0 (+https://github.com/MacTash/vakula)"
 
 
 def _get(url: str, *, params: dict | None = None) -> requests.Response:

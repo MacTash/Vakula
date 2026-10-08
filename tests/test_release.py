@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from vidur import (agent, analytics, briefing, confidence, contradiction, domain,
+from vakula import (agent, analytics, briefing, confidence, contradiction, domain,
                    extract, forecast, fusion, gazetteer, intelligence_model, provenance,
                    schema, state, storage)
 
@@ -25,7 +25,7 @@ END = date(2026, 10, 1)
 
 
 def _seed(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
 
@@ -186,7 +186,7 @@ def test_watchlist_requires_a_name(monkeypatch, tmp_path):
 def test_watchlist_needs_no_network(monkeypatch, tmp_path):
     """Managing a watch target must be pure local database state."""
     _seed(monkeypatch, tmp_path)
-    import vidur.storage as store
+    import vakula.storage as store
     calls = []
     monkeypatch.setattr(store.requests if hasattr(store, "requests") else sys, "get",
                         lambda *a, **k: calls.append(a), raising=False)
@@ -197,7 +197,7 @@ def test_watchlist_needs_no_network(monkeypatch, tmp_path):
 
 
 def test_earthquake_watch_command_is_untouched():
-    from vidur.cli import build_parser
+    from vakula.cli import build_parser
     parser = build_parser()
     args = parser.parse_args(["watch", "earthquakes", "--interval", "300"])
     assert args.command == "watch" and args.collector == "earthquakes" and args.interval == 300
@@ -206,7 +206,7 @@ def test_earthquake_watch_command_is_untouched():
 
 
 def test_watch_and_watchlist_are_separate_namespaces():
-    from vidur.cli import build_parser
+    from vakula.cli import build_parser
     parser = build_parser()
     assert parser.parse_args(["watchlist", "add", "Gaza"]).watchlist_command == "add"
     assert parser.parse_args(["watchlist", "list"]).watchlist_command == "list"
@@ -513,7 +513,7 @@ def test_migration_from_every_known_version(monkeypatch, tmp_path, start_version
     db.commit()
     db.close()
 
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(storage, "database_path", lambda: database)
     for _ in range(2):
         storage.init_db()
@@ -531,7 +531,7 @@ def test_existing_rows_survive_every_migration(monkeypatch, tmp_path):
     db.commit()
     db.close()
 
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(storage, "database_path", lambda: database)
     storage.init_db()
     assert len(storage.list_items()) == 14
@@ -557,7 +557,7 @@ def test_repeated_initialisation_is_stable(monkeypatch, tmp_path):
 def test_empty_database_opens_cleanly(monkeypatch, tmp_path):
     # Point past the first-launch copy of the checkout database, so this really
     # is an empty database rather than a newly migrated one.
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(storage, "database_path", lambda: tmp_path / "fresh.db")
     # Elsewhere the first-launch copy would import the checkout database, which
     # is intended behaviour; here we want a genuinely empty file.
@@ -633,14 +633,14 @@ def test_declared_dependencies_are_the_only_ones_imported():
     declared = {"requests", "platformdirs", "textual", "textual_image", "av",
                 "PIL", "yaml", "pytest"}
     imported = set()
-    for path in (ROOT / "vidur").glob("*.py"):
+    for path in (ROOT / "vakula").glob("*.py"):
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 imported.update(alias.name.split(".")[0] for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 imported.add(node.module.split(".")[0])
-    third_party = imported - declared - set(sys.stdlib_module_names) - {"vidur"}
+    third_party = imported - declared - set(sys.stdlib_module_names) - {"vakula"}
     assert third_party == set(), third_party
 
 
@@ -652,10 +652,10 @@ def test_python_selection_stays_overridable():
 
 
 def test_package_layout_is_clean():
-    assert (ROOT / "vidur" / "__init__.py").is_file()
-    assert (ROOT / "vidur" / "vidur.tcss").is_file()
+    assert (ROOT / "vakula" / "__init__.py").is_file()
+    assert (ROOT / "vakula" / "vakula.tcss").is_file()
     assert (ROOT / "pyproject.toml").is_file()
-    assert (ROOT / "npm" / "vidur.js").is_file()
+    assert (ROOT / "npm" / "vakula.js").is_file()
     assert (ROOT / "package.json").is_file()
 
 
@@ -663,7 +663,7 @@ def test_package_layout_is_clean():
 
 def test_gitignore_excludes_runtime_data():
     ignored = (ROOT / ".gitignore").read_text()
-    for pattern in ("data/", ".venv/", ".vidur-npm-venv/", "__pycache__/",
+    for pattern in ("data/", ".venv/", ".vakula-npm-venv/", "__pycache__/",
                     "build/", "*.egg-info/"):
         assert pattern in ignored, pattern
 
@@ -681,14 +681,14 @@ def test_version_metadata_is_consistent():
     version = pyproject.split('version = "')[1].split('"')[0]
     assert package["version"] == version
     assert f'name = "{package["name"]}"' in pyproject
-    assert package["name"] == "vidur"
+    assert package["name"] == "vakula"
 
 
 def test_readme_documents_the_install_paths():
     readme = (ROOT / "README.md").read_text()
     assert "pip install" in readme
     assert "npm install" in readme
-    assert "VIDUR_DATA_DIR" in readme
+    assert "VAKULA_DATA_DIR" in readme
     assert "assess" in readme or "evidence" in readme
 
 
@@ -711,15 +711,15 @@ def test_pipeline_layers_only_depend_downward():
         "briefing": set(),
     }
     for name, banned in forbidden.items():
-        module = __import__(f"vidur.{name}", fromlist=[name])
+        module = __import__(f"vakula.{name}", fromlist=[name])
         tree = ast.parse(inspect.getsource(module))
         for node in ast.walk(tree):
             targets = []
-            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("vidur."):
+            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("vakula."):
                 targets.append(node.module.split(".")[1])
             elif isinstance(node, ast.Import):
                 targets.extend(alias.name.split(".")[1] for alias in node.names
-                               if alias.name.startswith("vidur."))
+                               if alias.name.startswith("vakula."))
             for target in targets:
                 assert target not in banned, f"{name} must not import {target}"
 

@@ -6,7 +6,7 @@ else is left alone.
 
 That restraint is the point. "No additional vessels departed" and "a further
 convoy was observed" are contradictory, and no rule-based reader can know that.
-Vidur records no contradiction for such a pair and resolves nothing. It does
+Vakula records no contradiction for such a pair and resolves nothing. It does
 not consult the 0.6B model either: a model asked to adjudicate between sources
 will pick one, and it will pick confidently. A disputed question stays disputed
 until evidence settles it, and until then it is stored as unresolved.
@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from vidur import extract
-from vidur.domain import clamp_confidence
+from vakula import extract
+from vakula.domain import clamp_confidence
 
 KIND_QUANTITY = "QUANTITY"
 KIND_POLARITY = "POLARITY"
@@ -145,7 +145,7 @@ def unresolved_semantic(texts: list[str]) -> None:
     """Explicitly record that a semantic judgement is not being made.
 
     Kept as a named no-op so the decision is visible in the codebase and can be
-    asserted in a test, rather than being an absence nobody notices. Vidur does
+    asserted in a test, rather than being an absence nobody notices. Vakula does
     not attempt to compare meaning, so it never returns a semantic verdict.
     """
     return None

@@ -1,7 +1,7 @@
 import time
 
-from vidur import extract, gazetteer, storage
-from vidur.extract import clean_text, find_handles, find_mentions, find_quantities
+from vakula import extract, gazetteer, storage
+from vakula.extract import clean_text, find_handles, find_mentions, find_quantities
 
 
 # --- the curated locations -------------------------------------------------
@@ -196,7 +196,7 @@ def test_extraction_is_deterministic():
 # --- persistence -----------------------------------------------------------
 
 def test_seeding_is_idempotent(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     first = (len(storage.list_locations()), len(storage.list_entities()))
@@ -207,7 +207,7 @@ def test_seeding_is_idempotent(monkeypatch, tmp_path):
 
 
 def test_extraction_links_reach_the_observation_architecture(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     body = ("Three naval vessels departed Port X near the Taiwan Strait. "
@@ -225,7 +225,7 @@ def test_extraction_links_reach_the_observation_architecture(monkeypatch, tmp_pa
 
 
 def test_single_location_becomes_the_observation_location(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     observation_id = storage.insert_observation(
@@ -234,7 +234,7 @@ def test_single_location_becomes_the_observation_location(monkeypatch, tmp_path)
 
 
 def test_re_enrichment_does_not_duplicate_links(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     item = {"platform": "x", "source_key": "k3",
@@ -252,7 +252,7 @@ def test_re_enrichment_does_not_duplicate_links(monkeypatch, tmp_path):
 
 
 def test_extraction_never_modifies_stored_content(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     body = '<p>Three naval vessels left <b>Gaza</b> &amp; the Taiwan Strait</p>'
@@ -263,7 +263,7 @@ def test_extraction_never_modifies_stored_content(monkeypatch, tmp_path):
 
 def test_extraction_does_not_pull_in_the_model(monkeypatch, tmp_path):
     # Extraction must stay offline and deterministic: no AI, no network.
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
     observation_id = storage.insert_observation(

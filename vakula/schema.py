@@ -1,4 +1,4 @@
-"""Ordered, additive SQLite migrations for Vidur.
+"""Ordered, additive SQLite migrations for Vakula.
 
 Every step raises ``PRAGMA user_version`` by exactly one and only ever adds.
 Nothing here drops, renames or rewrites a table, so a database created by any

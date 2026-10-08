@@ -49,12 +49,12 @@ _image_terminal.get_tiocgwinsz = _safe_image_terminal_size
 
 from textual_image.widget import Image as TerminalImage
 
-from vidur.agent import AISettings, ModelDiscoveryError, QWEN_TINY_MODEL, list_ollama_models, research
-from vidur.agent_reach import AgentReachError, ChannelStatus, doctor, search_platform
-from vidur.browser import BrowserError, configured_provider, read, search
-from vidur.collectors import earthquakes, weather
-from vidur.media import MediaError, download_media, video_frames, video_poster
-from vidur.storage import init_db, list_items, list_source_items, set_source_saved, stats
+from vakula.agent import AISettings, ModelDiscoveryError, QWEN_TINY_MODEL, list_ollama_models, research
+from vakula.agent_reach import AgentReachError, ChannelStatus, doctor, search_platform
+from vakula.browser import BrowserError, configured_provider, read, search
+from vakula.collectors import earthquakes, weather
+from vakula.media import MediaError, download_media, video_frames, video_poster
+from vakula.storage import init_db, list_items, list_source_items, set_source_saved, stats
 
 
 def _post_from_worker(app: App, callback, *args) -> None:
@@ -76,7 +76,7 @@ class ConfirmModelDownload(ModalScreen[bool]):
         with Vertical(id="confirm-dialog"):
             yield Static(
                 "Download Qwen3 0.6B Q4_K_M?\n\n"
-                "Ollama will download about 523 MB. Vidur will not download it until you confirm.",
+                "Ollama will download about 523 MB. Vakula will not download it until you confirm.",
                 id="confirm-copy",
                 markup=False,
             )
@@ -91,10 +91,10 @@ class ConfirmModelDownload(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class VidurApp(App[None]):
-    TITLE = "Vidur"
+class VakulaApp(App[None]):
+    TITLE = "Vakula"
     SUB_TITLE = "Source-first terminal research"
-    CSS_PATH = "vidur.tcss"
+    CSS_PATH = "vakula.tcss"
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("ctrl+p", "command_palette", "Commands"),
@@ -111,7 +111,7 @@ class VidurApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Static("Starting Vidur…", id="connection-line", markup=False)
+        yield Static("Starting Vakula…", id="connection-line", markup=False)
         with TabbedContent(initial="overview-tab", id="main-tabs"):
             with TabPane("Overview", id="overview-tab"):
                 yield Static("Loading local situation…", id="overview-status", markup=False)
@@ -139,7 +139,7 @@ class VidurApp(App[None]):
             with TabPane("Research", id="research-tab"):
                 with Horizontal(classes="search-row"):
                     yield Input(placeholder="Ask a basic question or type /help", id="research-query")
-                    yield Button("Ask Vidur", id="ask-vidur", variant="primary")
+                    yield Button("Ask Vakula", id="ask-vakula", variant="primary")
                 yield RichLog(id="activity", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 yield Static("Qwen answers appear here. Retrieved source posts remain in the Live Feed.",
                              id="answer", markup=False)
@@ -187,8 +187,8 @@ class VidurApp(App[None]):
             self.toggle_save()
         elif button == "view-media":
             self.open_media()
-        elif button == "ask-vidur":
-            self.ask_vidur()
+        elif button == "ask-vakula":
+            self.ask_vakula()
         elif button == "download-qwen":
             self.push_screen(ConfirmModelDownload(), self.confirm_qwen_download)
         elif button == "refresh-models":
@@ -202,7 +202,7 @@ class VidurApp(App[None]):
         if event.input.id == "x-query":
             self.submit_source_search(event.value)
         elif event.input.id == "research-query":
-            self.ask_vidur(event.value)
+            self.ask_vakula(event.value)
         elif event.input.id == "weather-location":
             self.fetch_weather()
 
@@ -266,7 +266,7 @@ class VidurApp(App[None]):
     def _intelligence_line(self) -> str:
         """One line of measured intelligence state for the Overview tab."""
         try:
-            from vidur import analytics
+            from vakula import analytics
             built = analytics.analyse()
             observations = int(built.metrics.get("window_observations") or 0)
             return (f"INTELLIGENCE  ·  {observations} observation(s) in "
@@ -325,7 +325,7 @@ class VidurApp(App[None]):
             model_state = f"Provider model: {self.settings.model or 'not configured'}"
         else:
             model_state = f"Local model: {self.settings.model or 'Qwen3 0.6B not installed'}"
-        return f"VIDUR  ·  {reach}  ·  {model_state}"
+        return f"VAKULA  ·  {reach}  ·  {model_state}"
 
     @work(thread=True, exclusive=True, group="agent-reach")
     def check_sources_worker(self) -> None:
@@ -357,7 +357,7 @@ class VidurApp(App[None]):
                 lines.append(f"{entry.platform.upper():14} {entry.status:10} {backend}")
                 if entry.message:
                     lines.append(f"  {entry.message}")
-            lines.extend(["", "Vidur invokes documented, read-only upstream commands only.",
+            lines.extend(["", "Vakula invokes documented, read-only upstream commands only.",
                           "Agent Reach and login-backed sources are configured separately by you."])
             widget.update("\n".join(lines))
         self.query_one("#connection-line", Static).update(self.connection_text())
@@ -445,7 +445,7 @@ class VidurApp(App[None]):
             return
         self.push_screen(MediaScreen(attachments, self.selected_item.get("source_url", "")))
 
-    def ask_vidur(self, prompt: str | None = None) -> None:
+    def ask_vakula(self, prompt: str | None = None) -> None:
         query = (prompt if prompt is not None else self.query_one("#research-query", Input).value).strip()
         if not query:
             return
@@ -555,8 +555,8 @@ class VidurApp(App[None]):
         pipeline; the model only writes the prose section. A missing model yields
         the deterministic rendering instead of an error.
         """
-        from vidur import briefing
-        from vidur.intelligence_model import NullModel, model_from_settings
+        from vakula import briefing
+        from vakula.intelligence_model import NullModel, model_from_settings
         model = NullModel() if not (self.settings.enabled and self.settings.model) \
             else model_from_settings(self.settings)
         try:
@@ -817,4 +817,4 @@ class MediaScreen(Screen[None]):
 
 def run() -> None:
     init_db()
-    VidurApp().run()
+    VakulaApp().run()

@@ -1,6 +1,6 @@
 """Read-only adapters for the active Agent Reach platform backends.
 
-Agent Reach selects and checks upstream tools; Vidur calls those tools
+Agent Reach selects and checks upstream tools; Vakula calls those tools
 through fixed argument lists and never offers arbitrary command execution.
 """
 
@@ -16,7 +16,7 @@ from typing import Callable
 
 import yaml
 
-from vidur.storage import insert_observation
+from vakula.storage import insert_observation
 
 MAX_OUTPUT_BYTES = 4_000_000
 MAX_RESULTS = 25
@@ -188,7 +188,7 @@ def _normalise_media(value) -> list[dict]:
 
 
 def normalise_tweet(value, *, backend: str) -> dict | None:
-    """Convert a backend record to Vidur fields while preserving its body."""
+    """Convert a backend record to Vakula fields while preserving its body."""
     if not isinstance(value, dict):
         return None
     user = value.get("user") or value.get("author") or {}
@@ -289,7 +289,7 @@ def search_twitter(query: str, limit: int = 10, *, emit: Callable[[str], None] |
                 output, backend_label = _run_opencli(query, limit)
             else:
                 raise AgentReachError(
-                    "twitter-cli needs TWITTER_AUTH_TOKEN and TWITTER_CT0 in Vidur's environment. "
+                    "twitter-cli needs TWITTER_AUTH_TOKEN and TWITTER_CT0 in Vakula's environment. "
                     "Agent Reach's saved values are used for doctor checks only."
                 )
         else:
@@ -396,7 +396,7 @@ def search_platform(platform: str, query: str, limit: int = 10,
     if platform in {"x", "twitter"}:
         return search_twitter(query, limit, emit=emit)
     if platform not in {"reddit", "github", "youtube"}:
-        raise AgentReachError(f"Vidur does not yet have a search adapter for {platform!r}.")
+        raise AgentReachError(f"Vakula does not yet have a search adapter for {platform!r}.")
     query = query.strip()
     if not query:
         raise AgentReachError("Enter a search query.")

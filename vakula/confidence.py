@@ -13,7 +13,7 @@ The four are never combined and never borrowed from one another:
 
 No function here takes a model, a completion or a generated number as input. A
 model's opinion of its own certainty is not evidence, and letting one in would
-make the whole layer unfalsifiable. ``vidur tests`` assert that by inspecting
+make the whole layer unfalsifiable. ``vakula tests`` assert that by inspecting
 these signatures.
 """
 
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from vidur.domain import clamp_confidence
+from vakula.domain import clamp_confidence
 
 # Three independent sources is treated as full corroboration. Above that the
 # curve flattens, so a hundred reposts of one wire story cannot outweigh the

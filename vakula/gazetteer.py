@@ -1,6 +1,6 @@
 """Curated knowledge about places and actors, kept deliberately small.
 
-This is hand-maintained and offline. Vidur does not guess: if a name is not in
+This is hand-maintained and offline. Vakula does not guess: if a name is not in
 here, extraction returns nothing for it rather than inventing an entity. A
 gazetteer that grows by guessing stops being evidence and starts being
 hallucination, so the list stays short and every entry is something a person
@@ -47,7 +47,7 @@ LOCATION_SEED: tuple[dict, ...] = (
         "key": "loc:gaza",
         "name": "Gaza",
         "aliases": ("Gaza City", "Gaza Strip", "the Strip of Gaza", "Strip of Gaza"),
-        # Country is left empty on purpose. Vidur records where something was
+        # Country is left empty on purpose. Vakula records where something was
         # reported from and does not adjudicate sovereignty.
         "country": "",
         "region": "Eastern Mediterranean",
@@ -141,7 +141,7 @@ ENTITY_SEED: tuple[dict, ...] = (
      "country": "", "aliases": ("Organization of the Petroleum Exporting Countries",)},
 )
 
-# Handles are accounts, which may be a person, an outlet or a bot. Vidur records
+# Handles are accounts, which may be a person, an outlet or a bot. Vakula records
 # them as OTHER rather than guessing which.
 HANDLE_ALIASES = ("OTHER",)
 
@@ -167,11 +167,11 @@ def seed(store=None) -> dict[str, int]:
     """Insert the curated entries. Idempotent, and safe to run on every launch.
 
     Existing rows are refreshed from the gazetteer but keep their ids and any
-    columns Vidur manages elsewhere, so re-seeding never duplicates a place or
+    columns Vakula manages elsewhere, so re-seeding never duplicates a place or
     resets what has been recorded about it.
     """
     if store is None:
-        from vidur import storage as store
+        from vakula import storage as store
     seeded = {"locations": 0, "entities": 0}
     for entry in LOCATION_SEED:
         if store.upsert_location(entry):

@@ -1,6 +1,6 @@
 """Tracing analytical claims back to the source text they rest on.
 
-Nothing in Vidur may state a fact without an observation behind it. The
+Nothing in Vakula may state a fact without an observation behind it. The
 functions here are the only sanctioned path from a finding to its evidence, and
 they fail loudly rather than returning an empty success: a claim that cannot cite
 its observations is a bug, not a sparse result.
@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from vidur import storage
-from vidur.domain import OBSERVATION_PREFIX, Event, Observation, clamp_confidence
+from vakula import storage
+from vakula.domain import OBSERVATION_PREFIX, Event, Observation, clamp_confidence
 
 _REFERENCE = re.compile(rf"^{OBSERVATION_PREFIX}-(\d+)$", re.IGNORECASE)
 

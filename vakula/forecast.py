@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date
 
-from vidur import analytics, confidence
+from vakula import analytics, confidence
 
 ENGINE = "Geoscope Forecast Engine v0.1"
 ENGINE_VERSION = "0.1"

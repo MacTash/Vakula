@@ -23,7 +23,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import date
 
-from vidur import analytics, confidence, forecast as forecast_module, provenance, storage
+from vakula import analytics, confidence, forecast as forecast_module, provenance, storage
 
 DATA_SUFFICIENT = "SUFFICIENT"
 DATA_SPARSE = "SPARSE"

@@ -11,9 +11,9 @@ from datetime import date, timedelta
 
 import pytest
 
-from vidur import (analytics, briefing, contradiction, extract, forecast, fusion,
+from vakula import (analytics, briefing, contradiction, extract, forecast, fusion,
                    gazetteer, provenance, state, storage)
-from vidur.intelligence_model import NullModel, StubModel
+from vakula.intelligence_model import NullModel, StubModel
 
 END = date(2026, 10, 1)
 
@@ -30,7 +30,7 @@ HOSTILE = {
 
 
 def _seed(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     gazetteer.seed(storage)
 

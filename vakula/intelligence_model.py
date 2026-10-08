@@ -25,7 +25,7 @@ from typing import Protocol, runtime_checkable
 
 import requests
 
-from vidur.agent import AISettings, list_ollama_models
+from vakula.agent import AISettings, list_ollama_models
 
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TIMEOUT = 90
@@ -58,7 +58,7 @@ class IntelligenceModel(Protocol):
 class OllamaModel:
     """Local Ollama backend, driven by the application's existing settings.
 
-    Reuses :class:`~vidur.agent.AISettings` and the existing model listing so
+    Reuses :class:`~vakula.agent.AISettings` and the existing model listing so
     nothing about the Research agent's configuration changes. It never pulls
     weights: a missing model is an error the caller reports, never a download
     triggered behind their back.

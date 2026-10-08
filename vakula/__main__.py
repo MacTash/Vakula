@@ -1,4 +1,4 @@
-from vidur.cli import main
+from vakula.cli import main
 
 if __name__ == "__main__":
     main()

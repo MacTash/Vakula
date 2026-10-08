@@ -1,7 +1,7 @@
 import pytest
 
-from vidur import provenance, storage
-from vidur.provenance import ProvenanceError
+from vakula import provenance, storage
+from vakula.provenance import ProvenanceError
 
 
 def _post(text="Three naval vessels departed Port X.", key="post-1"):
@@ -11,7 +11,7 @@ def _post(text="Three naval vessels departed Port X.", key="post-1"):
 
 
 def test_observation_is_stored_with_provenance(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     observation_id = storage.insert_observation(_post(), source_type="SOCIAL", language="en")
 
@@ -26,7 +26,7 @@ def test_observation_is_stored_with_provenance(monkeypatch, tmp_path):
 def test_source_content_is_immutable_once_collected(monkeypatch, tmp_path):
     # A publisher editing a post later must not rewrite the evidence an
     # assessment already cited.
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     first = storage.insert_observation(_post(text="Three vessels departed."))
     storage.insert_observation(_post(text="Three vessels departed. EDITED."))
@@ -39,7 +39,7 @@ def test_source_content_is_immutable_once_collected(monkeypatch, tmp_path):
 
 
 def test_observation_view_exposes_canonical_fields(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     observation_id = storage.insert_observation(_post())
     record = storage.get_observation(observation_id)
@@ -51,7 +51,7 @@ def test_observation_view_exposes_canonical_fields(monkeypatch, tmp_path):
 
 
 def test_missing_reference_is_an_error_not_an_empty_result(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     with pytest.raises(ProvenanceError):
         provenance.get_observation("OBS-999999")
@@ -62,7 +62,7 @@ def test_missing_reference_is_an_error_not_an_empty_result(monkeypatch, tmp_path
 
 
 def test_reference_parsing_accepts_loose_formats(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     observation_id = storage.insert_observation(_post())
     assert provenance.parse_reference(f"OBS-{observation_id}") == observation_id
@@ -72,7 +72,7 @@ def test_reference_parsing_accepts_loose_formats(monkeypatch, tmp_path):
 
 
 def test_event_evidence_is_derived_from_stored_links(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     first = storage.insert_observation(_post(key="a"))
     second = storage.insert_observation(_post(key="b", text="Footage shows vessels leaving."))
@@ -95,7 +95,7 @@ def test_event_evidence_is_derived_from_stored_links(monkeypatch, tmp_path):
 
 
 def test_citation_coverage_reflects_missing_hashes(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     observation_id = storage.insert_observation(_post())
     with storage.connect() as db:
@@ -105,7 +105,7 @@ def test_citation_coverage_reflects_missing_hashes(monkeypatch, tmp_path):
 
 
 def test_unknown_platform_never_blocks_an_insert(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     storage.init_db()
     observation_id = storage.insert_observation({"body": "no platform", "source_key": "k"})
     assert storage.get_observation(observation_id)["platform"] == "unknown"

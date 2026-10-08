@@ -1,4 +1,4 @@
-"""Standards-based web search and readable-page retrieval for Vidur.
+"""Standards-based web search and readable-page retrieval for Vakula.
 
 Search uses a user-controlled SearXNG JSON endpoint when available. The
 keyless fallback uses DuckDuckGo's non-JavaScript HTML search interface.
@@ -12,13 +12,13 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from vidur.storage import add_item, setting
+from vakula.storage import add_item, setting
 
 
 def searxng_url() -> str:
-    return setting("VIDUR_SEARXNG_URL", "GEOSCOPE_SEARXNG_URL")
+    return setting("VAKULA_SEARXNG_URL", "VIDUR_SEARXNG_URL", "GEOSCOPE_SEARXNG_URL")
 
-USER_AGENT = "Vidur/0.2.0 (terminal research client)"
+USER_AGENT = "Vakula/0.2.0 (terminal research client)"
 MAX_PAGE_BYTES = 1_500_000
 
 

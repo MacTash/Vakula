@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
-from vidur import confidence, contradiction, extract, provenance, storage
-from vidur.domain import clamp_confidence
+from vakula import confidence, contradiction, extract, provenance, storage
+from vakula.domain import clamp_confidence
 
 CONFIRMED = "CONFIRMED"
 CANDIDATE = "CANDIDATE"

@@ -10,22 +10,24 @@ from typing import Callable
 
 import requests
 
-from vidur.browser import BrowserError, read, search
-from vidur.collectors import earthquakes, weather
-from vidur.agent_reach import AgentReachError, search_twitter
-from vidur.storage import list_items, setting
+from vakula.browser import BrowserError, read, search
+from vakula.collectors import earthquakes, weather
+from vakula.agent_reach import AgentReachError, search_twitter
+from vakula.storage import list_items, setting
 
 QWEN_TINY_MODEL = "qwen3:0.6b-q4_K_M"
 
 
 @dataclass
 class AISettings:
-    base_url: str = setting("VIDUR_AI_BASE_URL", "GEOSCOPE_AI_BASE_URL")
-    provider_api_key: str = setting("VIDUR_PROVIDER_API_KEY", "GEOSCOPE_PROVIDER_API_KEY") \
-        or setting("VIDUR_AI_API_KEY", "GEOSCOPE_AI_API_KEY")
-    model: str = setting("VIDUR_AI_MODEL", "GEOSCOPE_AI_MODEL")
+    base_url: str = setting("VAKULA_AI_BASE_URL", "VIDUR_AI_BASE_URL", "GEOSCOPE_AI_BASE_URL")
+    provider_api_key: str = setting("VAKULA_PROVIDER_API_KEY", "VIDUR_PROVIDER_API_KEY",
+                                   "GEOSCOPE_PROVIDER_API_KEY") \
+        or setting("VAKULA_AI_API_KEY", "VIDUR_AI_API_KEY", "GEOSCOPE_AI_API_KEY")
+    model: str = setting("VAKULA_AI_MODEL", "VIDUR_AI_MODEL", "GEOSCOPE_AI_MODEL")
     mode: str = "provider"
-    ollama_url: str = setting("VIDUR_OLLAMA_URL", "GEOSCOPE_OLLAMA_URL") or "http://127.0.0.1:11434"
+    ollama_url: str = (setting("VAKULA_OLLAMA_URL", "VIDUR_OLLAMA_URL",
+                              "GEOSCOPE_OLLAMA_URL") or "http://127.0.0.1:11434")
 
     @property
     def active_base_url(self) -> str:
@@ -61,12 +63,12 @@ def list_ollama_models(base_url: str = "http://127.0.0.1:11434") -> list[dict]:
 
 
 TOOLS = [
-    {"type": "function", "function": {"name": "x_search", "description": "Read recent public X/Twitter posts through the active Agent Reach backend. Vidur will show the source posts separately without rewriting them.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "default": 10}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "x_search", "description": "Read recent public X/Twitter posts through the active Agent Reach backend. Vakula will show the source posts separately without rewriting them.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "default": 10}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "web_search", "description": "Search current public web sources for a research question.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "default": 8}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "open_url", "description": "Open and extract readable text from a public HTTP(S) URL.", "parameters": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}}},
     {"type": "function", "function": {"name": "weather", "description": "Get current weather for a location from Open-Meteo.", "parameters": {"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]}}},
     {"type": "function", "function": {"name": "earthquakes", "description": "Get recent public USGS earthquake events.", "parameters": {"type": "object", "properties": {"minimum_magnitude": {"type": "number", "default": 4.5}}}}},
-    {"type": "function", "function": {"name": "local_intel", "description": "Search information already stored in the local Vidur workspace.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "category": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "local_intel", "description": "Search information already stored in the local Vakula workspace.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "category": {"type": "string"}}, "required": ["query"]}}},
 ]
 
 
@@ -164,7 +166,7 @@ def execute_tool(name: str, arguments: dict, emit: Callable[[str], None]) -> str
 
 
 def research(prompt: str, settings: AISettings, emit: Callable[[str], None]) -> str:
-    """Ask a compatible model to research with Vidur's constrained tools."""
+    """Ask a compatible model to research with Vakula's constrained tools."""
     if not settings.enabled:
         emit("SEARCH  AI is off; running a direct web search.")
         results = search(prompt, progress=lambda text: emit(f"SOURCE  {text}"))
@@ -174,8 +176,8 @@ def research(prompt: str, settings: AISettings, emit: Callable[[str], None]) -> 
     emit(f"AI      contacting {settings.mode} model ({settings.model})")
     if native_qwen:
         system_prompt = (
-            "You are Vidur's small local helper. Keep replies short and handle basic questions and "
-            "Vidur help. For current X discussion, call x_search with a concise, nonempty query. "
+            "You are Vakula's small local helper. Keep replies short and handle basic questions and "
+            "Vakula help. For current X discussion, call x_search with a concise, nonempty query. "
             "Never invent live facts or claim "
             "you accessed a source you did not use. The TUI presents retrieved posts as source text; "
             "your reply is a separate explanation and must not be presented as the original post."
@@ -183,7 +185,7 @@ def research(prompt: str, settings: AISettings, emit: Callable[[str], None]) -> 
         available_tools = [TOOLS[0]]
     else:
         system_prompt = (
-            "You are Vidur, a cautious research assistant. Use tools for current facts. State sources, "
+            "You are Vakula, a cautious research assistant. Use tools for current facts. State sources, "
             "distinguish evidence from inference, and never claim to have accessed a source you did not use."
         )
         available_tools = TOOLS

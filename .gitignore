@@ -1,5 +1,5 @@
 .venv/
-.vidur-npm-venv/
+.vakula-npm-venv/
 __pycache__/
 *.py[cod]
 data/

@@ -1,31 +1,31 @@
-$vidur-surface: #10151d;
-$vidur-panel: #171f2a;
-$vidur-panel-alt: #1d2835;
-$vidur-accent: #61d6c5;
-$vidur-text: #e4edf4;
-$vidur-muted: #8da0b0;
+$vakula-surface: #10151d;
+$vakula-panel: #171f2a;
+$vakula-panel-alt: #1d2835;
+$vakula-accent: #61d6c5;
+$vakula-text: #e4edf4;
+$vakula-muted: #8da0b0;
 
 Screen {
-    background: $vidur-surface;
-    color: $vidur-text;
+    background: $vakula-surface;
+    color: $vakula-text;
 }
 
 Header {
-    background: $vidur-panel-alt;
-    color: $vidur-accent;
+    background: $vakula-panel-alt;
+    color: $vakula-accent;
     text-style: bold;
 }
 
 Footer {
-    background: $vidur-panel-alt;
-    color: $vidur-muted;
+    background: $vakula-panel-alt;
+    color: $vakula-muted;
 }
 
 #connection-line {
     height: 3;
     padding: 1 2;
-    background: $vidur-panel;
-    color: $vidur-accent;
+    background: $vakula-panel;
+    color: $vakula-accent;
     text-style: bold;
 }
 
@@ -35,7 +35,7 @@ Footer {
 
 TabPane {
     padding: 1 2;
-    background: $vidur-surface;
+    background: $vakula-surface;
 }
 
 .search-row {
@@ -64,8 +64,8 @@ TabPane {
 #saved-table {
     height: 1fr;
     min-height: 8;
-    border: round $vidur-panel-alt;
-    background: $vidur-surface;
+    border: round $vakula-panel-alt;
+    background: $vakula-surface;
 }
 
 #intel-detail,
@@ -76,9 +76,9 @@ TabPane {
     max-height: 40%;
     margin-top: 1;
     padding: 1 2;
-    border: round $vidur-panel-alt;
-    background: $vidur-panel;
-    color: $vidur-text;
+    border: round $vakula-panel-alt;
+    background: $vakula-panel;
+    color: $vakula-text;
     overflow-y: auto;
 }
 
@@ -87,8 +87,8 @@ TabPane {
     min-height: 4;
     padding: 1 2;
     margin-bottom: 1;
-    background: $vidur-panel;
-    color: $vidur-accent;
+    background: $vakula-panel;
+    color: $vakula-accent;
 }
 
 .action-row {
@@ -99,16 +99,16 @@ TabPane {
 #activity {
     height: 1fr;
     padding: 1;
-    border: round $vidur-panel-alt;
-    background: $vidur-panel;
+    border: round $vakula-panel-alt;
+    background: $vakula-panel;
 }
 
 #answer {
     height: 10;
     margin-top: 1;
     padding: 1 2;
-    border: round $vidur-accent;
-    background: $vidur-panel;
+    border: round $vakula-accent;
+    background: $vakula-panel;
     overflow-y: auto;
 }
 
@@ -122,8 +122,8 @@ TabPane {
     height: auto;
     padding: 1 2;
     margin-bottom: 1;
-    border: round $vidur-panel-alt;
-    background: $vidur-panel;
+    border: round $vakula-panel-alt;
+    background: $vakula-panel;
     overflow-y: auto;
 }
 
@@ -134,8 +134,8 @@ TabPane {
 #media-caption {
     height: auto;
     padding: 1 2;
-    color: $vidur-accent;
-    background: $vidur-panel;
+    color: $vakula-accent;
+    background: $vakula-panel;
 }
 
 #media-frame {
@@ -143,14 +143,14 @@ TabPane {
     height: 1fr;
     min-height: 8;
     align: center middle;
-    background: $vidur-surface;
+    background: $vakula-surface;
 }
 
 #media-status {
     height: 3;
     padding: 1 2;
-    color: $vidur-muted;
-    background: $vidur-panel;
+    color: $vakula-muted;
+    background: $vakula-panel;
 }
 
 #confirm-dialog {
@@ -159,15 +159,15 @@ TabPane {
     max-width: 90%;
     max-height: 90%;
     padding: 1 2;
-    border: round $vidur-accent;
-    background: $vidur-panel;
+    border: round $vakula-accent;
+    background: $vakula-panel;
     align: center middle;
 }
 
 #confirm-copy {
     height: 1fr;
     content-align: center middle;
-    color: $vidur-text;
+    color: $vakula-text;
 }
 
 .dialog-actions {

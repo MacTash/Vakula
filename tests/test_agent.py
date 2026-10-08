@@ -1,5 +1,5 @@
-from vidur import agent
-from vidur.agent import AISettings, execute_tool, list_ollama_models
+from vakula import agent
+from vakula.agent import AISettings, execute_tool, list_ollama_models
 
 
 def test_ai_endpoint_and_disabled_configuration():
@@ -13,7 +13,7 @@ def test_agent_rejects_unknown_tool():
 
 
 def test_research_uses_model_tool_calls(monkeypatch, tmp_path):
-    monkeypatch.setenv("VIDUR_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("VAKULA_DATA_DIR", str(tmp_path))
     replies = iter([
         {"choices": [{"message": {"role": "assistant", "tool_calls": [{"id": "call-1", "function": {"name": "local_intel", "arguments": '{"query":"test"}'}}]}}]},
         {"choices": [{"message": {"role": "assistant", "content": "No matching local intelligence."}}]},

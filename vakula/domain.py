@@ -1,7 +1,7 @@
-"""Plain domain objects for Vidur's intelligence model.
+"""Plain domain objects for Vakula's intelligence model.
 
 These are value objects only: no database handles, no network, no imports from
-the rest of Vidur. Storage maps rows into them; nothing here decides anything.
+the rest of Vakula. Storage maps rows into them; nothing here decides anything.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 # Event types are deliberately open. Any uppercase token is a valid event_type;
-# this tuple is what Vidur assigns today and what the CLI validates against.
+# this tuple is what Vakula assigns today and what the CLI validates against.
 EVENT_TYPES = (
     "MILITARY_ACTIVITY",
     "NAVAL_DEPLOYMENT",
@@ -180,7 +180,7 @@ class Entity:
 class Event:
     """A real-world occurrence inferred from one or more observations.
 
-    ``confidence`` is calculated by Vidur from evidence quality and is never
+    ``confidence`` is calculated by Vakula from evidence quality and is never
     supplied by a model. ``confidence_basis`` records the human-readable reason
     so a number can always be explained.
     """
@@ -209,7 +209,7 @@ class Relationship:
 
     Kind values are 'ENTITY', 'EVENT' and 'LOCATION'. This is deliberately a
     table of tuples rather than a graph database; adjacency reads are cheap at
-    the scale Vidur operates at.
+    the scale Vakula operates at.
     """
 
     id: int | None = None
@@ -254,7 +254,7 @@ class Assessment:
 class Prediction:
     """A probabilistic forecast produced by the forecasting layer.
 
-    ``probability`` comes from Vidur's forecast engine. A model may only write
+    ``probability`` comes from Vakula's forecast engine. A model may only write
     ``explanation``; it never supplies the number.
     """
 
