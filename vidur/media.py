@@ -9,12 +9,12 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
-from geoscope.storage import cache_dir
+from vidur.storage import cache_dir
 
 IMAGE_LIMIT = 20 * 1024 * 1024
 VIDEO_LIMIT = 120 * 1024 * 1024
 MEDIA_HOST_SUFFIX = ".twimg.com"
-USER_AGENT = "Geoscope/0.2 media viewer"
+USER_AGENT = "Vidur/0.2 media viewer"
 
 
 class MediaError(RuntimeError):
@@ -35,7 +35,7 @@ def _validate_url(url: str) -> None:
 
 
 def download_media(url: str, *, kind: str = "image") -> Path:
-    """Fetch one selected attachment into Geoscope's bounded user cache."""
+    """Fetch one selected attachment into Vidur's bounded user cache."""
     _validate_url(url)
     limit = VIDEO_LIMIT if kind == "video" else IMAGE_LIMIT
     digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
@@ -126,7 +126,7 @@ def video_frames(path: Path, stop_event, playing_event, *, frames_per_second: fl
     try:
         import av
     except ImportError as exc:
-        raise MediaError("Video playback needs PyAV. Reinstall Geoscope's dependencies.") from exc
+        raise MediaError("Video playback needs PyAV. Reinstall Vidur's dependencies.") from exc
     frame_interval = 1 / max(1, min(frames_per_second, 12))
     next_frame_at = 0.0
     last_displayed_at = time.monotonic()
@@ -157,7 +157,7 @@ def video_poster(path: Path):
     try:
         import av
     except ImportError as exc:
-        raise MediaError("Video previews need PyAV. Reinstall Geoscope's dependencies.") from exc
+        raise MediaError("Video previews need PyAV. Reinstall Vidur's dependencies.") from exc
     with av.open(str(path)) as container:
         stream = next((item for item in container.streams if item.type == "video"), None)
         if stream is None:

@@ -1,31 +1,31 @@
-$geo-surface: #10151d;
-$geo-panel: #171f2a;
-$geo-panel-alt: #1d2835;
-$geo-accent: #61d6c5;
-$geo-text: #e4edf4;
-$geo-muted: #8da0b0;
+$vidur-surface: #10151d;
+$vidur-panel: #171f2a;
+$vidur-panel-alt: #1d2835;
+$vidur-accent: #61d6c5;
+$vidur-text: #e4edf4;
+$vidur-muted: #8da0b0;
 
 Screen {
-    background: $geo-surface;
-    color: $geo-text;
+    background: $vidur-surface;
+    color: $vidur-text;
 }
 
 Header {
-    background: $geo-panel-alt;
-    color: $geo-accent;
+    background: $vidur-panel-alt;
+    color: $vidur-accent;
     text-style: bold;
 }
 
 Footer {
-    background: $geo-panel-alt;
-    color: $geo-muted;
+    background: $vidur-panel-alt;
+    color: $vidur-muted;
 }
 
 #connection-line {
     height: 3;
     padding: 1 2;
-    background: $geo-panel;
-    color: $geo-accent;
+    background: $vidur-panel;
+    color: $vidur-accent;
     text-style: bold;
 }
 
@@ -35,7 +35,7 @@ Footer {
 
 TabPane {
     padding: 1 2;
-    background: $geo-surface;
+    background: $vidur-surface;
 }
 
 .search-row {
@@ -64,8 +64,8 @@ TabPane {
 #saved-table {
     height: 1fr;
     min-height: 8;
-    border: round $geo-panel-alt;
-    background: $geo-surface;
+    border: round $vidur-panel-alt;
+    background: $vidur-surface;
 }
 
 #intel-detail,
@@ -76,9 +76,9 @@ TabPane {
     max-height: 40%;
     margin-top: 1;
     padding: 1 2;
-    border: round $geo-panel-alt;
-    background: $geo-panel;
-    color: $geo-text;
+    border: round $vidur-panel-alt;
+    background: $vidur-panel;
+    color: $vidur-text;
     overflow-y: auto;
 }
 
@@ -87,8 +87,8 @@ TabPane {
     min-height: 4;
     padding: 1 2;
     margin-bottom: 1;
-    background: $geo-panel;
-    color: $geo-accent;
+    background: $vidur-panel;
+    color: $vidur-accent;
 }
 
 .action-row {
@@ -99,16 +99,16 @@ TabPane {
 #activity {
     height: 1fr;
     padding: 1;
-    border: round $geo-panel-alt;
-    background: $geo-panel;
+    border: round $vidur-panel-alt;
+    background: $vidur-panel;
 }
 
 #answer {
     height: 10;
     margin-top: 1;
     padding: 1 2;
-    border: round $geo-accent;
-    background: $geo-panel;
+    border: round $vidur-accent;
+    background: $vidur-panel;
     overflow-y: auto;
 }
 
@@ -122,8 +122,8 @@ TabPane {
     height: auto;
     padding: 1 2;
     margin-bottom: 1;
-    border: round $geo-panel-alt;
-    background: $geo-panel;
+    border: round $vidur-panel-alt;
+    background: $vidur-panel;
     overflow-y: auto;
 }
 
@@ -134,8 +134,8 @@ TabPane {
 #media-caption {
     height: auto;
     padding: 1 2;
-    color: $geo-accent;
-    background: $geo-panel;
+    color: $vidur-accent;
+    background: $vidur-panel;
 }
 
 #media-frame {
@@ -143,14 +143,14 @@ TabPane {
     height: 1fr;
     min-height: 8;
     align: center middle;
-    background: $geo-surface;
+    background: $vidur-surface;
 }
 
 #media-status {
     height: 3;
     padding: 1 2;
-    color: $geo-muted;
-    background: $geo-panel;
+    color: $vidur-muted;
+    background: $vidur-panel;
 }
 
 #confirm-dialog {
@@ -159,15 +159,15 @@ TabPane {
     max-width: 90%;
     max-height: 90%;
     padding: 1 2;
-    border: round $geo-accent;
-    background: $geo-panel;
+    border: round $vidur-accent;
+    background: $vidur-panel;
     align: center middle;
 }
 
 #confirm-copy {
     height: 1fr;
     content-align: center middle;
-    color: $geo-text;
+    color: $vidur-text;
 }
 
 .dialog-actions {

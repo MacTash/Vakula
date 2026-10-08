@@ -5,7 +5,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
-const environment = path.join(root, ".geoscope-npm-venv");
+const environment = path.join(root, ".vidur-npm-venv");
 
 function run(executable, args, options = {}) {
   return spawnSync(executable, args, { stdio: "inherit", ...options });
@@ -30,7 +30,7 @@ function findPython() {
 }
 
 function fail(message) {
-  console.error(`Geoscope npm install: ${message}`);
+  console.error(`Vidur npm install: ${message}`);
   process.exit(1);
 }
 
@@ -40,7 +40,7 @@ if (!python) {
 }
 
 if (!fs.existsSync(environment)) {
-  console.log("Geoscope npm install: creating an isolated Python environment...");
+  console.log("Vidur npm install: creating an isolated Python environment...");
   const result = run(python.executable, [...python.prefix, "-m", "venv", environment]);
   if (result.error || result.status !== 0) {
     fail("could not create the Python environment. Check that Python includes venv support.");
@@ -55,13 +55,13 @@ const venvVersion = spawnSync(venvPython, ["-c", "import sys; raise SystemExit(s
   stdio: "ignore",
 });
 if (venvVersion.error || venvVersion.status !== 0) {
-  fail("the existing npm Python environment is older than 3.12 or damaged. Remove only .geoscope-npm-venv and rerun npm install.");
+  fail("the existing npm Python environment is older than 3.12 or damaged. Remove only .vidur-npm-venv and rerun npm install.");
 }
 
-console.log("Geoscope npm install: installing Geoscope and its Python dependencies...");
+console.log("Vidur npm install: installing Vidur and its Python dependencies...");
 const result = run(venvPython, ["-m", "pip", "install", "--disable-pip-version-check", root]);
 if (result.error || result.status !== 0) {
   fail("dependency installation failed. Check your network connection and rerun npm install.");
 }
 
-console.log("Geoscope npm install: ready. Run `geoscope` to open the terminal workspace.");
+console.log("Vidur npm install: ready. Run `vidur` to open the terminal workspace.");

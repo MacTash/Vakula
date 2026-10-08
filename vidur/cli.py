@@ -9,9 +9,9 @@ import time
 from collections import Counter
 from datetime import datetime
 
-from geoscope.collectors import earthquakes, news, weather
-from geoscope.agent_reach import AgentReachError, doctor, search_platform, search_twitter
-from geoscope.storage import init_db, list_items, stats
+from vidur.collectors import earthquakes, news, weather
+from vidur.agent_reach import AgentReachError, doctor, search_platform, search_twitter
+from vidur.storage import init_db, list_items, stats
 
 
 def _render(items: list[dict], as_json: bool = False) -> None:
@@ -28,9 +28,9 @@ def _render(items: list[dict], as_json: bool = False) -> None:
 
 def _report(items: list[dict], target: str | None) -> None:
     title = target or "Stored intelligence"
-    print(f"\nGEOSCOPE SITUATION BRIEF — {title}\n{'=' * 58}")
+    print(f"\nVIDUR SITUATION BRIEF — {title}\n{'=' * 58}")
     if not items:
-        print("No matching intelligence is stored. Run `geoscope collect` first."); return
+        print("No matching intelligence is stored. Run `vidur collect` first."); return
     counts = Counter(item["category"] for item in items)
     risks = Counter(item["severity"] for item in items)
     print("Coverage: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
@@ -41,9 +41,9 @@ def _report(items: list[dict], target: str | None) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="geoscope", description="Terminal-native situational awareness workspace")
+    parser = argparse.ArgumentParser(prog="vidur", description="Terminal-native situational awareness workspace")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("init", help="create Geoscope's local database")
+    sub.add_parser("init", help="create Vidur's local database")
     sub.add_parser("tui", help="open the interactive research terminal")
     sub.add_parser("status", help="show local workspace status")
     sub.add_parser("sources", help="show Agent Reach source-channel status")
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "init": print(f"Initialized {init_db()}"); return
     init_db()
     if args.command == "tui":
-        from geoscope.tui import run
+        from vidur.tui import run
         run(); return
     if args.command == "status":
         data = stats(); print(f"Database: {data['database']}\nItems: {data['total']}\nLatest: {data['latest'] or '—'}")
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"{item['author']} · {item['published_at']} · {item['backend']}")
                 print(item["body"])
                 print(item["source_url"])
-                if item["media"]: print(f"{len(item['media'])} attachment(s) · view in `geoscope tui`")
+                if item["media"]: print(f"{len(item['media'])} attachment(s) · view in `vidur tui`")
                 print()
         return
     if args.command == "source-search":

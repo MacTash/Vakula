@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-# Keep the installed `geoscope` command free of CPython bytecode artefacts.
-export PYTHONDONTWRITEBYTECODE=1
-exec python3 -m geoscope "$@"

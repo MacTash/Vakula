@@ -3,9 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "geoscope"
+# The import package, CLI, data file and GitHub repo are all plain "vidur".
+# Publishing note: PyPI "vidur" is held by Georgia Tech / Microsoft (an LLM
+# inference cluster simulator), so a future PyPI release must ship under a
+# distinct slug — vidur-scope is free on both PyPI and npm — or install from
+# git. npm "vidur" itself is unclaimed, so the launcher needs no scope.
+name = "vidur"
 version = "0.2.0"
-description = "Terminal-native multi-source situational awareness workspace"
+description = "Terminal-native geopolitical situational awareness and intelligence workspace"
 requires-python = ">=3.12"
 dependencies = [
     "requests>=2.31",
@@ -21,10 +26,10 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-geoscope = "geoscope.cli:main"
+vidur = "vidur.cli:main"
 
 [tool.setuptools.package-data]
-geoscope = ["*.tcss"]
+vidur = ["*.tcss"]
 
 [tool.setuptools.packages.find]
-include = ["geoscope*"]
+include = ["vidur*"]

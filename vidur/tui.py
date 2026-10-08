@@ -49,12 +49,12 @@ _image_terminal.get_tiocgwinsz = _safe_image_terminal_size
 
 from textual_image.widget import Image as TerminalImage
 
-from geoscope.agent import AISettings, ModelDiscoveryError, QWEN_TINY_MODEL, list_ollama_models, research
-from geoscope.agent_reach import AgentReachError, ChannelStatus, doctor, search_platform
-from geoscope.browser import BrowserError, configured_provider, read, search
-from geoscope.collectors import earthquakes, weather
-from geoscope.media import MediaError, download_media, video_frames, video_poster
-from geoscope.storage import init_db, list_items, list_source_items, set_source_saved, stats
+from vidur.agent import AISettings, ModelDiscoveryError, QWEN_TINY_MODEL, list_ollama_models, research
+from vidur.agent_reach import AgentReachError, ChannelStatus, doctor, search_platform
+from vidur.browser import BrowserError, configured_provider, read, search
+from vidur.collectors import earthquakes, weather
+from vidur.media import MediaError, download_media, video_frames, video_poster
+from vidur.storage import init_db, list_items, list_source_items, set_source_saved, stats
 
 
 def _post_from_worker(app: App, callback, *args) -> None:
@@ -76,7 +76,7 @@ class ConfirmModelDownload(ModalScreen[bool]):
         with Vertical(id="confirm-dialog"):
             yield Static(
                 "Download Qwen3 0.6B Q4_K_M?\n\n"
-                "Ollama will download about 523 MB. Geoscope will not download it until you confirm.",
+                "Ollama will download about 523 MB. Vidur will not download it until you confirm.",
                 id="confirm-copy",
                 markup=False,
             )
@@ -91,10 +91,10 @@ class ConfirmModelDownload(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class GeoscopeApp(App[None]):
-    TITLE = "Geoscope"
+class VidurApp(App[None]):
+    TITLE = "Vidur"
     SUB_TITLE = "Source-first terminal research"
-    CSS_PATH = "geoscope.tcss"
+    CSS_PATH = "vidur.tcss"
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("ctrl+p", "command_palette", "Commands"),
@@ -111,7 +111,7 @@ class GeoscopeApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Static("Starting Geoscope…", id="connection-line", markup=False)
+        yield Static("Starting Vidur…", id="connection-line", markup=False)
         with TabbedContent(initial="overview-tab", id="main-tabs"):
             with TabPane("Overview", id="overview-tab"):
                 yield Static("Loading local situation…", id="overview-status", markup=False)
@@ -139,7 +139,7 @@ class GeoscopeApp(App[None]):
             with TabPane("Research", id="research-tab"):
                 with Horizontal(classes="search-row"):
                     yield Input(placeholder="Ask a basic question or type /help", id="research-query")
-                    yield Button("Ask Geoscope", id="ask-geoscope", variant="primary")
+                    yield Button("Ask Vidur", id="ask-vidur", variant="primary")
                 yield RichLog(id="activity", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 yield Static("Qwen answers appear here. Retrieved source posts remain in the Live Feed.",
                              id="answer", markup=False)
@@ -187,8 +187,8 @@ class GeoscopeApp(App[None]):
             self.toggle_save()
         elif button == "view-media":
             self.open_media()
-        elif button == "ask-geoscope":
-            self.ask_geoscope()
+        elif button == "ask-vidur":
+            self.ask_vidur()
         elif button == "download-qwen":
             self.push_screen(ConfirmModelDownload(), self.confirm_qwen_download)
         elif button == "refresh-models":
@@ -202,7 +202,7 @@ class GeoscopeApp(App[None]):
         if event.input.id == "x-query":
             self.submit_source_search(event.value)
         elif event.input.id == "research-query":
-            self.ask_geoscope(event.value)
+            self.ask_vidur(event.value)
         elif event.input.id == "weather-location":
             self.fetch_weather()
 
@@ -311,7 +311,7 @@ class GeoscopeApp(App[None]):
             model_state = f"Provider model: {self.settings.model or 'not configured'}"
         else:
             model_state = f"Local model: {self.settings.model or 'Qwen3 0.6B not installed'}"
-        return f"GEOSCOPE  ·  {reach}  ·  {model_state}"
+        return f"VIDUR  ·  {reach}  ·  {model_state}"
 
     @work(thread=True, exclusive=True, group="agent-reach")
     def check_sources_worker(self) -> None:
@@ -343,7 +343,7 @@ class GeoscopeApp(App[None]):
                 lines.append(f"{entry.platform.upper():14} {entry.status:10} {backend}")
                 if entry.message:
                     lines.append(f"  {entry.message}")
-            lines.extend(["", "Geoscope invokes documented, read-only upstream commands only.",
+            lines.extend(["", "Vidur invokes documented, read-only upstream commands only.",
                           "Agent Reach and login-backed sources are configured separately by you."])
             widget.update("\n".join(lines))
         self.query_one("#connection-line", Static).update(self.connection_text())
@@ -431,7 +431,7 @@ class GeoscopeApp(App[None]):
             return
         self.push_screen(MediaScreen(attachments, self.selected_item.get("source_url", "")))
 
-    def ask_geoscope(self, prompt: str | None = None) -> None:
+    def ask_vidur(self, prompt: str | None = None) -> None:
         query = (prompt if prompt is not None else self.query_one("#research-query", Input).value).strip()
         if not query:
             return
@@ -772,4 +772,4 @@ class MediaScreen(Screen[None]):
 
 def run() -> None:
     init_db()
-    GeoscopeApp().run()
+    VidurApp().run()

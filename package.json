@@ -1,13 +1,13 @@
 {
-  "name": "geoscope-tui",
+  "name": "vidur",
   "version": "0.2.0",
-  "description": "Terminal-native situational awareness workspace",
+  "description": "Terminal-native geopolitical situational awareness and intelligence workspace",
   "bin": {
-    "geoscope": "npm/geoscope.js"
+    "vidur": "npm/vidur.js"
   },
   "files": [
     "README.md",
-    "geoscope/",
+    "vidur/",
     "npm/",
     "pyproject.toml"
   ],

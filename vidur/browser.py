@@ -1,4 +1,4 @@
-"""Standards-based web search and readable-page retrieval for Geoscope.
+"""Standards-based web search and readable-page retrieval for Vidur.
 
 Search uses a user-controlled SearXNG JSON endpoint when available. The
 keyless fallback uses DuckDuckGo's non-JavaScript HTML search interface.
@@ -12,9 +12,13 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from geoscope.storage import add_item
+from vidur.storage import add_item, setting
 
-USER_AGENT = "Geoscope/0.2.0 (terminal research client)"
+
+def searxng_url() -> str:
+    return setting("VIDUR_SEARXNG_URL", "GEOSCOPE_SEARXNG_URL")
+
+USER_AGENT = "Vidur/0.2.0 (terminal research client)"
 MAX_PAGE_BYTES = 1_500_000
 
 
@@ -23,7 +27,7 @@ class BrowserError(RuntimeError):
 
 
 def configured_provider() -> str | None:
-    if os.environ.get("GEOSCOPE_SEARXNG_URL"):
+    if searxng_url():
         return "SearXNG"
     return "DuckDuckGo HTML (keyless fallback)"
 
@@ -41,8 +45,8 @@ def search(query: str, limit: int = 8, progress=None) -> list[dict]:
     provider = configured_provider()
     if progress:
         progress(f"Searching {provider} …")
-    if os.environ.get("GEOSCOPE_SEARXNG_URL"):
-        base = os.environ["GEOSCOPE_SEARXNG_URL"].rstrip("/")
+    base = searxng_url().rstrip("/")
+    if base:
         try:
             response = requests.get(f"{base}/search", params={"q": query, "format": "json", "categories": "general"},
                                     headers={"User-Agent": USER_AGENT}, timeout=25)

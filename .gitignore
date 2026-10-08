@@ -1,5 +1,5 @@
 .venv/
-.geoscope-npm-venv/
+.vidur-npm-venv/
 __pycache__/
 *.py[cod]
 data/

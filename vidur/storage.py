@@ -1,4 +1,4 @@
-"""Small, portable SQLite store owned exclusively by Geoscope."""
+"""Small, portable SQLite store owned exclusively by Vidur."""
 
 from __future__ import annotations
 
@@ -13,43 +13,77 @@ from typing import Iterator
 
 from platformdirs import user_cache_path, user_data_path
 
+APP_NAME = "vidur"
+LEGACY_APP_NAME = "geoscope"
+DATABASE_FILE = "vidur.db"
+LEGACY_DATABASE_FILE = "geoscope.db"
+
+
+def setting(name: str, legacy: str) -> str:
+    """Read a VIDUR_* setting, falling back to the pre-rename GEOSCOPE_* name."""
+    return os.environ.get(name) or os.environ.get(legacy) or ""
+
 
 def default_data_dir() -> Path:
-    configured = os.environ.get("GEOSCOPE_DATA_DIR")
+    configured = setting("VIDUR_DATA_DIR", "GEOSCOPE_DATA_DIR")
     if configured:
         return Path(configured).expanduser()
-    return Path(user_data_path("geoscope", appauthor=False))
+    current = Path(user_data_path(APP_NAME, appauthor=False))
+    legacy = Path(user_data_path(LEGACY_APP_NAME, appauthor=False))
+    # A pre-rename install already has a populated geoscope directory. Keep using
+    # it rather than stranding its database in a directory Vidur never reads.
+    if not current.exists() and legacy.is_dir():
+        return legacy
+    return current
 
 
 def cache_dir() -> Path:
-    configured = os.environ.get("GEOSCOPE_CACHE_DIR")
+    configured = setting("VIDUR_CACHE_DIR", "GEOSCOPE_CACHE_DIR")
     if configured:
         return Path(configured).expanduser()
-    return Path(user_cache_path("geoscope", appauthor=False))
+    current = Path(user_cache_path(APP_NAME, appauthor=False))
+    legacy = Path(user_cache_path(LEGACY_APP_NAME, appauthor=False))
+    if not current.exists() and legacy.is_dir():
+        return legacy
+    return current
 
 
 def database_path() -> Path:
-    return default_data_dir() / "geoscope.db"
+    folder = default_data_dir()
+    if (folder / DATABASE_FILE).exists():
+        return folder / DATABASE_FILE
+    legacy = folder / LEGACY_DATABASE_FILE
+    if legacy.is_file():
+        return legacy
+    return folder / DATABASE_FILE
+
+
+def _copy_database(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() == target.resolve():
+        return
+    reader = sqlite3.connect(source)
+    writer = sqlite3.connect(target)
+    try:
+        reader.backup(writer)
+    finally:
+        writer.close()
+        reader.close()
 
 
 def _migrate_project_database(target: Path) -> None:
-    """Copy the old checkout-local database once, preserving its contents."""
+    """Copy the checkout-local database once, preserving its contents."""
     project = Path.cwd()
-    if not (project / "pyproject.toml").is_file() or not (project / "geoscope").is_dir():
+    if not (project / "pyproject.toml").is_file() or not (project / APP_NAME).is_dir():
         return
-    legacy = project / "data" / "geoscope.db"
-    if target.exists() or not legacy.is_file():
+    if target.exists():
         return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if legacy.resolve() == target.resolve():
-        return
-    source = sqlite3.connect(legacy)
-    destination = sqlite3.connect(target)
-    try:
-        source.backup(destination)
-    finally:
-        destination.close()
-        source.close()
+    data = project / "data"
+    for candidate in (data / DATABASE_FILE, data / LEGACY_DATABASE_FILE):
+        if candidate.is_file():
+            _copy_database(candidate, target)
+            return
+
 
 
 @contextmanager

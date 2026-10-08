@@ -7,9 +7,9 @@ from urllib.parse import quote_plus
 
 import requests
 
-from geoscope.storage import add_item
+from vidur.storage import add_item
 
-USER_AGENT = "Geoscope/0.2.0 (+https://github.com/MacTash/Geoscope)"
+USER_AGENT = "Vidur/0.2.0 (+https://github.com/MacTash/vidur)"
 
 
 def _get(url: str, *, params: dict | None = None) -> requests.Response:
