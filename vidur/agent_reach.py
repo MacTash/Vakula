@@ -16,7 +16,7 @@ from typing import Callable
 
 import yaml
 
-from vidur.storage import save_source_item
+from vidur.storage import insert_observation
 
 MAX_OUTPUT_BYTES = 4_000_000
 MAX_RESULTS = 25
@@ -332,7 +332,7 @@ def search_twitter(query: str, limit: int = 10, *, emit: Callable[[str], None] |
     for record in _records(payload)[:limit]:
         item = normalise_tweet(record, backend=backend_label)
         if item and (item["body"] or item["media"] or item["source_url"]):
-            save_source_item(item)
+            insert_observation(item)
             items.append(item)
     if not items:
         raise AgentReachError("The X backend returned no structured posts. Check its output and Agent Reach version.")
@@ -471,7 +471,7 @@ def search_platform(platform: str, query: str, limit: int = 10,
     for record in _records(payload)[:limit]:
         item = _normalise_record(record, platform=platform, backend=backend_label)
         if item["body"] or item["source_url"]:
-            save_source_item(item)
+            insert_observation(item)
             items.append(item)
     if not items:
         raise AgentReachError(f"The {platform} backend returned no structured search results.")

@@ -102,10 +102,28 @@ def connect() -> Iterator[sqlite3.Connection]:
         db.close()
 
 
+_gazetteer_seeded = False
+
+
 def init_db() -> Path:
-    """Create or forward-migrate Vidur's database. Safe to call repeatedly."""
+    """Create or forward-migrate Vidur's database. Safe to call repeatedly.
+
+    Also seeds the curated gazetteer once per process, before any extraction can
+    run, so a link in the database always refers to an entry a person curated.
+    """
+    global _gazetteer_seeded
     with connect() as db:
         migrate(db)
+    if not _gazetteer_seeded:
+        # Set before seeding, not after: upsert_location calls init_db() again,
+        # so this flag doubles as the re-entrancy guard.
+        _gazetteer_seeded = True
+        try:
+            from vidur import gazetteer
+            gazetteer.seed()
+        except Exception:
+            _gazetteer_seeded = False
+            raise
     return database_path()
 
 
@@ -278,12 +296,17 @@ def ensure_source(platform: str, backend: str = "", *, source_type: str = "OTHER
         return int(row[0])
 
 
-def insert_observation(item: dict, *, source_type: str = "OTHER", language: str = "") -> int:
+def insert_observation(item: dict, *, source_type: str = "OTHER", language: str = "",
+                      enrich: bool = True) -> int:
     """Store one retrieved source record as an observation and return its id.
 
     This is the intelligence layer's write path and it goes through
     :func:`save_source_item`, so there is exactly one place where source text is
     stored. Nothing here summarises, translates or rewrites the body.
+
+    ``enrich`` runs the deterministic extractor and links whatever the curated
+    gazetteer recognises. It is pure and offline, so it never invents an entity
+    and never puts model output into the intelligence graph.
     """
     observation_id = save_source_item(item)
     source_id = ensure_source(
@@ -291,6 +314,9 @@ def insert_observation(item: dict, *, source_type: str = "OTHER", language: str 
     with connect() as db:
         db.execute("UPDATE source_items SET source_id=?, source_type=?, language=? WHERE id=?",
                    (source_id, source_type, language, observation_id))
+    if enrich:
+        from vidur.extract import enrich_observation
+        enrich_observation(observation_id)
     return observation_id
 
 
@@ -353,6 +379,155 @@ def list_sources() -> list[dict]:
     with connect() as db:
         return [dict(row) for row in db.execute(
             "SELECT * FROM sources ORDER BY name COLLATE NOCASE").fetchall()]
+
+
+def upsert_location(entry: dict) -> bool:
+    """Insert or refresh one curated location, preserving its id."""
+    init_db()
+    now = datetime.now(timezone.utc).isoformat()
+    values = {
+        "key": str(entry["key"]), "name": str(entry["name"]),
+        "country": str(entry.get("country", "")), "region": str(entry.get("region", "")),
+        "location_type": str(entry.get("location_type", "OTHER")),
+        "latitude": entry.get("latitude"), "longitude": entry.get("longitude"),
+        "radius_km": entry.get("radius_km"), "now": now,
+    }
+    with connect() as db:
+        before = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
+        db.execute("""
+            INSERT INTO locations (key, name, country, region, location_type,
+                                   latitude, longitude, radius_km, created_at)
+            VALUES (:key, :name, :country, :region, :location_type,
+                    :latitude, :longitude, :radius_km, :now)
+            ON CONFLICT(key) DO UPDATE SET
+              name=excluded.name, country=excluded.country, region=excluded.region,
+              location_type=excluded.location_type, latitude=excluded.latitude,
+              longitude=excluded.longitude, radius_km=excluded.radius_km
+        """, values)
+        after = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
+        return after > before
+
+
+def upsert_entity(entry: dict) -> bool:
+    """Insert or refresh one curated entity, preserving its id."""
+    init_db()
+    now = datetime.now(timezone.utc).isoformat()
+    values = {
+        "key": str(entry["key"]), "name": str(entry["name"]),
+        "entity_type": str(entry.get("entity_type", "OTHER")),
+        "country": str(entry.get("country", "")),
+        "aliases": json.dumps(list(entry.get("aliases", ())), ensure_ascii=False),
+        "now": now,
+    }
+    with connect() as db:
+        before = db.execute("SELECT COUNT(*) FROM entities").fetchone()[0]
+        db.execute("""
+            INSERT INTO entities (key, name, entity_type, country, aliases, first_seen, last_seen)
+            VALUES (:key, :name, :entity_type, :country, :aliases, :now, :now)
+            ON CONFLICT(key) DO UPDATE SET
+              name=excluded.name, entity_type=excluded.entity_type,
+              country=excluded.country, aliases=excluded.aliases, last_seen=excluded.last_seen
+        """, values)
+        after = db.execute("SELECT COUNT(*) FROM entities").fetchone()[0]
+        return after > before
+
+
+def location_id_for(key: str) -> int | None:
+    with connect() as db:
+        row = db.execute("SELECT id FROM locations WHERE key=?", (key,)).fetchone()
+    return int(row[0]) if row else None
+
+
+def entity_id_for(key: str) -> int | None:
+    with connect() as db:
+        row = db.execute("SELECT id FROM entities WHERE key=?", (key,)).fetchone()
+    return int(row[0]) if row else None
+
+
+def link_mentions(observation_id: int, extraction) -> dict:
+    """Record the curated locations and entities an observation mentions.
+
+    Links live in ``relationships`` rather than a new table: the existing unique
+    constraint makes repeated enrichment idempotent, so re-running extraction
+    cannot inflate an actor's apparent prominence. Nothing about the stored
+    source text is touched here.
+    """
+    init_db()
+    now = datetime.now(timezone.utc).isoformat()
+    linked = {"locations": 0, "entities": 0, "location_id": None}
+    with connect() as db:
+        for mention in getattr(extraction, "locations", ()):
+            location_id = location_id_for(mention.key)
+            if location_id is None:
+                continue
+            linked["locations"] += 1
+            _link(db, observation_id, "LOCATION", location_id, "LOCATED_IN", now)
+        for key in getattr(extraction, "entity_keys", lambda: ())():
+            entity_id = entity_id_for(key)
+            if entity_id is None:
+                # Account handles are extracted but not promoted to entity rows.
+                # The author of a post already lives in source_items.author, and
+                # creating a row per mentioned handle would let noisy text inflate
+                # the actor graph without anyone curating those actors.
+                continue
+            linked["entities"] += 1
+            _link(db, observation_id, "ENTITY", entity_id, "MENTIONS", now)
+        # Only a single recognised location becomes the observation's own
+        # location. With several candidates the choice would be a guess, so the
+        # column stays empty and the links above carry the ambiguity.
+        resolved = [location_id_for(mention.key) for mention in getattr(extraction, "locations", ())]
+        resolved = [value for value in resolved if value is not None]
+        if len(resolved) == 1:
+            linked["location_id"] = resolved[0]
+        db.execute("UPDATE source_items SET location_id=? WHERE id=?",
+                   (linked["location_id"], observation_id))
+    return linked
+
+
+def _link(db, observation_id: int, to_kind: str, to_id: int, rel_type: str, now: str) -> None:
+    db.execute("""
+        INSERT INTO relationships (from_kind, from_id, rel_type, to_kind, to_id, created_at)
+        VALUES ('OBSERVATION', ?, ?, ?, ?, ?)
+        ON CONFLICT(from_kind, from_id, rel_type, to_kind, to_id) DO NOTHING
+    """, (observation_id, rel_type, to_kind, to_id, now))
+
+
+def locations_for_observation(observation_id: int) -> list[dict]:
+    """Curated locations this observation mentions."""
+    with connect() as db:
+        rows = db.execute("""
+            SELECT l.*, r.rel_type AS rel_type FROM relationships r
+            JOIN locations l ON l.id = r.to_id
+            WHERE r.from_kind='OBSERVATION' AND r.from_id=? AND r.to_kind='LOCATION'
+            ORDER BY l.name COLLATE NOCASE
+        """, (int(observation_id),)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def entities_for_observation(observation_id: int) -> list[dict]:
+    """Curated entities this observation mentions, plus any handles."""
+    with connect() as db:
+        rows = db.execute("""
+            SELECT e.*, r.rel_type AS rel_type FROM relationships r
+            JOIN entities e ON e.id = r.to_id
+            WHERE r.from_kind='OBSERVATION' AND r.from_id=? AND r.to_kind='ENTITY'
+            ORDER BY e.name COLLATE NOCASE
+        """, (int(observation_id),)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_locations() -> list[dict]:
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM locations ORDER BY name COLLATE NOCASE").fetchall()]
+
+
+def list_entities() -> list[dict]:
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM entities ORDER BY name COLLATE NOCASE").fetchall()]
 
 
 def observation_stats() -> dict:
