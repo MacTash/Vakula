@@ -41,6 +41,30 @@ def _report(items: list[dict], target: str | None) -> None:
     print("\nAssessment: This brief summarizes public-source data. Verify all claims with primary sources before action.")
 
 
+def _watchlist(args) -> None:
+    """Local watch targets. Purely database state, no network involved."""
+    from vidur.storage import add_watchlist, list_watchlists, remove_watchlist
+    if args.watchlist_command == "add":
+        row_id, created = add_watchlist(args.target, note=args.note)
+        print(f"{'Added' if created else 'Already watching'}: {args.target} (id {row_id})")
+        return
+    if args.watchlist_command == "rm":
+        if remove_watchlist(args.target):
+            print(f"Stopped watching: {args.target}")
+        else:
+            print(f"Not watching: {args.target}")
+        return
+    targets = list_watchlists()
+    if not targets:
+        print("No watch targets. Add one with `vidur watchlist add <target>`.")
+        return
+    print(f"\nACTIVE WATCHES\n{'=' * 58}")
+    for row in targets:
+        detail = f"  {row['note']}" if row["note"] else ""
+        print(f"{row['name']}{detail}")
+    return
+
+
 def _assess(args) -> None:
     """Produce an assessment, using the local model unless it is unavailable.
 
@@ -147,7 +171,13 @@ def build_parser() -> argparse.ArgumentParser:
     intel = sub.add_parser("intel", help="inspect locally stored intelligence")
     intel_sub = intel.add_subparsers(dest="intel_command", required=True)
     for name in ("list", "search"):
-        p = intel_sub.add_parser(name); p.add_argument("query", nargs="?" if name == "search" else "*")
+        p = intel_sub.add_parser(name)
+        # Optional for both. Historically `list` required a positional that
+        # defaulted to the literal "*", which then became part of the LIKE pattern
+        # and matched nothing, so `vidur intel list '*'` returned an empty result
+        # while status reported stored items. An omitted or bare "*" now means
+        # "no text filter", which is what a caller asking to list everything means.
+        p.add_argument("query", nargs="?")
         p.add_argument("--category"); p.add_argument("--limit", type=int, default=30); p.add_argument("--json", action="store_true")
     report = sub.add_parser("report", help="generate a local situation brief")
     report.add_argument("target", nargs="?"); report.add_argument("--category"); report.add_argument("--limit", type=int, default=50)
@@ -170,6 +200,14 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--json", action="store_true")
     watch = sub.add_parser("watch", help="periodically refresh a safe public collector")
     watch.add_argument("collector", choices=("earthquakes",)); watch.add_argument("--interval", type=int, default=300)
+    watchlist = sub.add_parser("watchlist", help="manage local watch targets")
+    watch_sub = watchlist.add_subparsers(dest="watchlist_command", required=True)
+    watch_add = watch_sub.add_parser("add", help="add a target; adding an existing target is a no-op")
+    watch_add.add_argument("target")
+    watch_add.add_argument("--note", default="")
+    watch_sub.add_parser("list", help="list watch targets")
+    watch_rm = watch_sub.add_parser("rm", help="stop watching a target")
+    watch_rm.add_argument("target")
     return parser
 
 
@@ -241,6 +279,8 @@ def main(argv: list[str] | None = None) -> None:
         except Exception as error:
             print(f"Collection failed: {error}", file=sys.stderr); raise SystemExit(1)
         return
+    if args.command == "watchlist":
+        return _watchlist(args)
     if args.command == "watch":
         try:
             while True:
@@ -249,7 +289,10 @@ def main(argv: list[str] | None = None) -> None:
         except KeyboardInterrupt: print("\nWatch stopped.")
         return
     if args.command == "intel":
-        query = " ".join(args.query) if isinstance(args.query, list) else args.query
+        query = args.query.strip() if isinstance(args.query, str) else None
+        # A bare "*" means "everything", not a literal asterisk to match.
+        if query in {"*", ""}:
+            query = None
         _render(list_items(args.category, query, args.limit), args.json); return
     if args.command == "timeline":
         _render(list_items(args.category, limit=args.limit), args.json); return

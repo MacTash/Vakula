@@ -38,6 +38,36 @@ TREND_DAMPING = 0.5
 # Below this many baseline days the probability is reported but flagged.
 MINIMUM_HISTORY_DAYS = 7
 
+# Extrapolation guards. A slope measured over the window is never projected
+# further than a factor of two in either direction, and a slope smaller than its
+# own standard error is discarded as noise before it is used at all.
+MIN_PROJECTION_FACTOR = 0.5
+MAX_PROJECTION_FACTOR = 2.0
+# Keeps the logarithm finite when the current rate is itself zero.
+MIN_RATIO = 1e-3
+
+
+def _slope_stderr(stdev, points: int) -> float | None:
+    """Approximate standard error of a least-squares slope.
+
+    For a simple linear fit the slope's standard error is roughly
+    ``stdev / sqrt(sum((x - xbar)^2))``, and that sum equals ``n(n^2-1)/12`` for
+    evenly spaced points. Returns None when it cannot be computed, so an
+    unusable estimate is never replaced with a number.
+    """
+    if stdev is None or points < 2:
+        return None
+    try:
+        spread = float(stdev)
+    except (TypeError, ValueError):
+        return None
+    if spread < 0:
+        return None
+    denominator = math.sqrt(points * (points ** 2 - 1) / 12.0)
+    if denominator <= 0:
+        return None
+    return spread / denominator
+
 
 @dataclass(frozen=True)
 class Forecast:
@@ -95,7 +125,11 @@ def forecast(scope: analytics.Scope = analytics.ALL, *,
     current_rate = analysis.current_rate or 0.0
     slope = float(metrics.get("slope_per_day") or 0.0)
 
-    enough_history = baseline_rate is not None and analysis.baseline_days >= MINIMUM_HISTORY_DAYS
+    # A baseline of zero is not a usable history: "exceeds the baseline" cannot
+    # be evaluated against nothing, and a ratio of 1.0 would report an even coin
+    # dressed up as a finding. Same treatment as no history at all.
+    enough_history = (baseline_rate is not None and baseline_rate > 0
+                      and analysis.baseline_days >= MINIMUM_HISTORY_DAYS)
     enough_observations = int(metrics.get("window_observations") or 0) >= analytics.MINIMUM_WINDOW_OBSERVATIONS
 
     if not enough_history or not enough_observations:
@@ -104,7 +138,9 @@ def forecast(scope: analytics.Scope = analytics.ALL, *,
         # from current activity.
         probability = 0.5
         shortfall = []
-        if not enough_history:
+        if baseline_rate is not None and baseline_rate <= 0:
+            shortfall.append("the baseline recorded no activity at all")
+        elif not enough_history:
             shortfall.append(f"only {analysis.baseline_days} day(s) of baseline history")
         if not enough_observations:
             shortfall.append(f"only {metrics.get('window_observations', 0)} observation(s) in the window")
@@ -114,16 +150,60 @@ def forecast(scope: analytics.Scope = analytics.ALL, *,
                      f"over {horizon} days.")
         insufficient = True
     else:
-        projected = max(0.0, current_rate + slope * horizon * TREND_DAMPING)
+        # --- The projection, and why it is guarded three separate ways ---------
+        #
+        # The defect this replaces: projected = max(0, current + slope*h*damping)
+        # collapsed to zero whenever a negative slope won the race, the log-ratio
+        # became undefined, and the engine returned exactly 0.5 while the basis
+        # text said activity was "expected to fall short". Probability and
+        # explanation contradicted each other, and 0.5 was an artefact of the
+        # algebra rather than a finding.
+        #
+        # 1. Significance gate. A least-squares slope carries a standard error of
+        #    roughly stdev / sqrt(sum((x - xbar)^2)). When the slope is no larger
+        #    than its own error it is indistinguishable from noise, so it is set
+        #    to zero. A downward blip in a noisy series is not a trend.
+        # 2. Bounded extrapolation. Even a significant slope is not projected
+        #    further than a factor of two in either direction over the horizon.
+        #    Extrapolating a slope measured over a fortnight across a further
+        #    fortnight is arithmetic without evidence.
+        # 3. Ratio floor. Because projected is now floored by MIN_PROJECTION_FACTOR,
+        #    it can only reach zero when the current rate is itself zero. The
+        #    remaining zero case is handled by flooring the ratio, which sends the
+        #    probability towards 0 rather than towards the undefined middle.
+        #
+        # Together these mean 0.5 arises only when the projection genuinely equals
+        # the baseline, and the direction stated in the sentence always agrees with
+        # the number.
+        window_stdev = metrics.get("window_stdev")
+        slope_stderr = _slope_stderr(window_stdev, int(analysis.window_days))
+        effective_slope = slope if (slope_stderr and abs(slope) > slope_stderr) else 0.0
+        slope_ignored = effective_slope == 0.0 and slope != 0.0
+
+        raw_projection = current_rate + effective_slope * horizon * TREND_DAMPING
+        floor = current_rate * MIN_PROJECTION_FACTOR
+        ceiling = current_rate * MAX_PROJECTION_FACTOR
+        projected = min(ceiling, max(floor, raw_projection))
+        projection_clamped = projected != raw_projection
+
         ratio = projected / baseline_rate if baseline_rate > 0 else 1.0
-        probability = _logistic(math.log(ratio) if ratio > 0 else 0.0)
+        floored_ratio = max(ratio, MIN_RATIO)
+        probability = _logistic(math.log(floored_ratio))
         insufficient = False
         if analysis.is_sustained:
             probability = min(1.0, probability + 0.05)
+
         direction = "exceed" if ratio > 1.0 else "fall short of"
         basis = (f"projected {projected:.2f} events/day against a {baseline_rate:.2f}/day "
-                 f"baseline, a ratio of {ratio:.2f}; slope {slope:+.2f}/day damped over "
-                 f"{horizon} days; anomaly status {analysis.status}")
+                 f"baseline, a ratio of {ratio:.4f}; slope {slope:+.2f}/day "
+                 f"(standard error {slope_stderr:.2f}) damped over {horizon} days; "
+                 f"anomaly status {analysis.status}")
+        if slope_ignored:
+            basis += (f"; slope treated as noise because it is within one standard "
+                      f"error, so the projection uses the current rate only")
+        if projection_clamped:
+            basis += (f"; projection bounded to within {MIN_PROJECTION_FACTOR:g}x-"
+                      f"{MAX_PROJECTION_FACTOR:g}x the current rate")
         if analysis.anomaly_score is None:
             # The rate comparison stands, but say plainly that deviation could not
             # be measured, so nobody reads the probability as anomaly-backed.

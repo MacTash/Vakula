@@ -530,6 +530,47 @@ def list_entities() -> list[dict]:
             "SELECT * FROM entities ORDER BY name COLLATE NOCASE").fetchall()]
 
 
+def add_watchlist(name: str, *, region_key: str = "", note: str = "") -> tuple[int, bool]:
+    """Add a watch target. Idempotent: adding an existing name changes nothing.
+
+    Returns the row id and whether a new row was created, so a caller can tell
+    "added" from "already being watched" without querying first.
+    """
+    init_db()
+    label = str(name).strip()
+    if not label:
+        raise ValueError("A watchlist needs a target name.")
+    with connect() as db:
+        before = db.execute("SELECT COUNT(*) FROM watchlists").fetchone()[0]
+        db.execute("""
+            INSERT INTO watchlists (name, region_key, note, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO NOTHING
+        """, (label, region_key, note, datetime.now(timezone.utc).isoformat()))
+        after = db.execute("SELECT COUNT(*) FROM watchlists").fetchone()[0]
+        row = db.execute("SELECT id FROM watchlists WHERE name=?", (label,)).fetchone()
+        return int(row[0]), after > before
+
+
+def remove_watchlist(name: str) -> bool:
+    """Remove a watch target. Returns False when it was not being watched."""
+    init_db()
+    label = str(name).strip()
+    if not label:
+        return False
+    with connect() as db:
+        cursor = db.execute("DELETE FROM watchlists WHERE name=?", (label,))
+        return cursor.rowcount > 0
+
+
+def list_watchlists() -> list[dict]:
+    """Every watch target, ordered by name so output is deterministic."""
+    init_db()
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM watchlists ORDER BY name COLLATE NOCASE").fetchall()]
+
+
 def save_assessment(region_key: str, body: str, *, state_payload: dict | None = None,
                     model: str = "", analytic_confidence: float = 0.0,
                     analytic_basis: str = "", window_days: int = 14,

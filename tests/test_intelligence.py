@@ -158,7 +158,7 @@ class _ConnectionError:
 
 def test_model_input_is_built_from_serialised_state(monkeypatch, tmp_path):
     _populate(monkeypatch, tmp_path)
-    stub = StubModel("[OBSERVED] A statement.")
+    stub = StubModel("[INFERRED] A reading.")
     briefing.assess("Taiwan Strait", model=stub, persist=False)
     prompt = stub.prompts[0]["prompt"]
     assert "FACTS" in prompt
@@ -172,7 +172,7 @@ def test_model_input_is_built_from_serialised_state(monkeypatch, tmp_path):
 
 def test_model_input_carries_no_whole_source_dump(monkeypatch, tmp_path):
     _populate(monkeypatch, tmp_path, injection=True)
-    stub = StubModel("[OBSERVED] A statement.")
+    stub = StubModel("[INFERRED] A reading.")
     briefing.assess("Taiwan Strait", model=stub, persist=False)
     prompt = stub.prompts[0]["prompt"]
     excerpts = [line for line in prompt.splitlines() if line.startswith("- OBS-")]
@@ -229,8 +229,8 @@ def test_injected_instruction_is_not_followed(monkeypatch, tmp_path):
 
 def test_untagged_model_output_is_never_presented_as_a_claim():
     claims, quarantined = briefing.parse_model_prose(
-        "Here is a helpful summary.\n[OBSERVED] A real observation.\nAnything else?")
-    assert [claim.text for claim in claims] == ["A real observation."]
+        "Here is a helpful summary.\n[INFERRED] A reading.\nAnything else?")
+    assert [claim.text for claim in claims] == ["A reading."]
     assert len(quarantined) == 2
 
 
@@ -245,8 +245,19 @@ def test_all_four_categories_are_defined_and_used():
 
 
 def test_categories_cannot_be_invented():
-    claims, _ = briefing.parse_model_prose("[PROBABLY] maybe true\n[OBSERVED] fine")
-    assert [claim.category for claim in claims] == [briefing.OBSERVED]
+    claims, quarantined = briefing.parse_model_prose(
+        "[PROBABLY] maybe true\n[INFERRED] fine")
+    assert [claim.category for claim in claims] == [briefing.INFERRED]
+    assert quarantined == ["[PROBABLY] maybe true"]
+
+
+def test_a_model_may_not_assert_observations():
+    """Observed facts belong to the deterministic layer alone."""
+    claims, quarantined = briefing.parse_model_prose(
+        "[OBSERVED] Three vessels were seen departing the port.\n[INFERRED] Consistent with a deployment.")
+    assert [claim.category for claim in claims] == [briefing.INFERRED]
+    assert len(quarantined) == 1
+    assert "may not assert observations" in quarantined[0]
 
 
 def test_unknown_is_used_for_what_evidence_does_not_settle(monkeypatch, tmp_path):
@@ -347,7 +358,7 @@ def test_facts_carry_observation_and_event_references(monkeypatch, tmp_path):
 
 def test_generated_briefing_keeps_its_provenance(monkeypatch, tmp_path):
     _populate(monkeypatch, tmp_path)
-    result = briefing.assess("Taiwan Strait", model=StubModel("[OBSERVED] note"),
+    result = briefing.assess("Taiwan Strait", model=StubModel("[INFERRED] note"),
                              persist=True)
     stored = storage.connect
     with storage.connect() as db:
@@ -355,6 +366,7 @@ def test_generated_briefing_keeps_its_provenance(monkeypatch, tmp_path):
     assert rows
     assert "EVT-" in rows[0]["body"] or "OBS-" in rows[0]["body"]
     assert rows[0]["model"] == "stub"
+    assert "INFERRED" in rows[0]["body"]
     assert result.word_count > 0
 
 
@@ -457,7 +469,7 @@ def test_briefing_mutates_nothing_upstream(monkeypatch, tmp_path):
     before_disputes = [storage.contradictions_for_event(row["id"]) for row in before_events]
     before_bases = [row["confidence_basis"] for row in before_events]
 
-    briefing.assess("Taiwan Strait", model=StubModel("[OBSERVED] x"), persist=True)
+    briefing.assess("Taiwan Strait", model=StubModel("[INFERRED] x"), persist=True)
 
     assert storage.get_observation(1) == before_observations
     assert storage.list_events() == before_events
@@ -527,13 +539,14 @@ def test_the_model_receives_no_tools_and_the_agent_is_untouched():
 
 def test_assessment_is_stored_apart_from_source_evidence(monkeypatch, tmp_path):
     _populate(monkeypatch, tmp_path)
-    briefing.assess("Taiwan Strait", model=StubModel("[OBSERVED] prose"), persist=True)
+    briefing.assess("Taiwan Strait", model=StubModel("[INFERRED] prose"), persist=True)
     with storage.connect() as db:
         stored = db.execute("SELECT * FROM assessments ORDER BY id DESC LIMIT 1").fetchone()
     # Generated prose lands in assessments, never in observations or events.
     assert stored["body"]
     assert all("prose" not in (row.get("content") or "")
                for row in storage.list_observations())
+    assert "stub" not in (storage.list_observations()[0].get("content") or "")
 
 
 # --- existing behaviour ----------------------------------------------------

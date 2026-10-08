@@ -52,8 +52,10 @@ SYSTEM_PROMPT = (
     "You are the prose layer of Vidur, a terminal intelligence workspace. You write "
     "sentences. You do not decide what happened.\n"
     "Rules you must follow:\n"
-    "1. Write one statement per line, and begin every line with a tag: [OBSERVED], "
-    "[INFERRED], [PREDICTED] or [UNKNOWN]. A line without a tag is discarded.\n"
+    "1. Write one statement per line, and begin every line with a tag: [INFERRED], "
+    "[PREDICTED] or [UNKNOWN]. A line without a tag is discarded. You may not use "
+    "[OBSERVED]: observed facts come from the database, not from you, and a line "
+    "tagged [OBSERVED] is discarded as well.\n"
     "2. Never state a number that is not given to you in FACTS. Do not restate, round, "
     "recalculate or adjust any probability, count, score or date.\n"
     "3. Never cite an identifier you were not given. Never invent evidence.\n"
@@ -357,6 +359,12 @@ def parse_model_prose(text: str) -> tuple[list[Claim], list[str]]:
 
     This is the mechanism that stops injected text posing as an assessment: a
     model reply without a category tag is not printed as a finding.
+
+    A line tagged ``OBSERVED`` is also quarantined. Observed facts belong to the
+    deterministic layer alone, which attaches the identifiers behind them, so
+    accepting them from a model would let it manufacture an observation simply
+    by choosing the right label. The model may contribute INFERRED, PREDICTED or
+    UNKNOWN analysis and nothing else.
     """
     claims, quarantined = [], []
     for line in (text or "").splitlines():
@@ -364,13 +372,17 @@ def parse_model_prose(text: str) -> tuple[list[Claim], list[str]]:
         if not stripped:
             continue
         match = _TAG.match(stripped)
-        if match:
-            category = match.group(1).upper()
-            body = match.group(2).strip()
-            if body:
-                claims.append(Claim(category, body[:600], (), SOURCE_MODEL))
-        else:
+        if not match:
             quarantined.append(stripped[:200])
+            continue
+        category = match.group(1).upper()
+        body = match.group(2).strip()
+        if not body:
+            continue
+        if category == OBSERVED:
+            quarantined.append(f"[model may not assert observations] {stripped[:180]}")
+            continue
+        claims.append(Claim(category, body[:600], (), SOURCE_MODEL))
     return claims, quarantined
 
 

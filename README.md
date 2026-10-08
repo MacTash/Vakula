@@ -101,6 +101,41 @@ Vidur stores its database in the operating system's user data directory. When fi
 
 The SQLite schema is versioned and existing intelligence records are retained. Use `vidur status` to inspect the database and source-post count.
 
+## Intelligence
+
+Vidur stores evidence, correlates it, measures it, and only then asks a language
+model to explain the result. The model never decides what happened.
+
+```text
+observations -> events -> contradictions -> analytics -> forecast
+             -> intelligence state -> assessment -> model prose
+```
+
+Every claim in a briefing is labelled `OBSERVED`, `INFERRED`, `PREDICTED` or
+`UNKNOWN`, and carries the `OBS-n` and `EVT-n` identifiers behind it. The
+forecast probability is computed by `Geoscope Forecast Engine v0.1` and is never
+supplied or adjusted by a model. Contradictions between sources are recorded and
+left unresolved; a model is never asked which source is right.
+
+Source text is untrusted. Retrieved text reaches the model only inside a
+delimited data block and is never treated as instructions, and untagged or
+`[OBSERVED]` model output is quarantined rather than printed as a finding.
+
+```bash
+vidur assess "Taiwan Strait"      # intelligence assessment for a scope
+vidur brief "Red Sea" --json      # structured briefing
+vidur assess --no-model           # deterministic rendering, no model consulted
+vidur evidence OBS-1842           # the stored source behind a claim
+vidur watchlist add "Taiwan Strait"
+vidur watchlist list
+vidur watchlist rm "Taiwan Strait"
+```
+
+If no model is available Vidur still produces a complete briefing from stored
+evidence and says so. Adding a watch target is local database state and involves
+no network access. `geoscope watch earthquakes --interval 300` remains the
+periodic collector poll and is unrelated to the watchlist namespace.
+
 ## Other CLI commands
 
 ```bash
@@ -109,6 +144,7 @@ vidur status
 vidur collect news "Red Sea shipping" --limit 15
 vidur collect earthquakes --min-magnitude 5.5
 vidur collect weather "Kochi, India"
+vidur intel list                    # stored intelligence, newest first
 vidur intel search shipping --category OSINT
 vidur timeline --category GEOINT
 vidur report "Red Sea"
